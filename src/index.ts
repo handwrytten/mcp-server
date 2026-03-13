@@ -12,6 +12,7 @@
  */
 
 import { randomUUID } from "node:crypto";
+import { urlencoded } from "express";
 import type { Request, Response } from "express";
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -114,6 +115,9 @@ async function runHttp(): Promise<void> {
   // -----------------------------------------------------------------------
 
   const app = createMcpExpressApp({ host: "0.0.0.0" });
+
+  // Parse URL-encoded bodies (OAuth token requests use application/x-www-form-urlencoded)
+  app.use(urlencoded({ extended: true }));
 
   // CORS — needed for browser-based MCP clients (e.g. MCP Inspector)
   app.use((_req, res, next) => {

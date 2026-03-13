@@ -115,6 +115,19 @@ async function runHttp(): Promise<void> {
 
   const app = createMcpExpressApp({ host: "0.0.0.0" });
 
+  // CORS — needed for browser-based MCP clients (e.g. MCP Inspector)
+  app.use((_req, res, next) => {
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
+    res.set("Access-Control-Allow-Headers", "Content-Type, Authorization, Mcp-Session-Id");
+    res.set("Access-Control-Expose-Headers", "Mcp-Session-Id, WWW-Authenticate");
+    if (_req.method === "OPTIONS") {
+      res.status(204).end();
+      return;
+    }
+    next();
+  });
+
   // OAuth proxy routes
   setupAuthRoutes(app, oauthConfig);
 

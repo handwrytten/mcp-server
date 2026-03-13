@@ -156,14 +156,21 @@ async function runHttp(): Promise<void> {
       // Extract Bearer token
       const token = extractBearerToken(req.headers.authorization);
       if (!token) {
-        res.status(401).json({
-          jsonrpc: "2.0",
-          error: {
-            code: -32000,
-            message: "Bearer token required. Authenticate via OAuth first.",
-          },
-          id: (req.body as Record<string, unknown>)?.id ?? null,
-        });
+        const mcpServerUrl = oauthConfig.mcpServerUrl;
+        res
+          .status(401)
+          .set(
+            "WWW-Authenticate",
+            `Bearer resource_metadata="${mcpServerUrl}/.well-known/oauth-protected-resource"`
+          )
+          .json({
+            jsonrpc: "2.0",
+            error: {
+              code: -32000,
+              message: "Bearer token required. Authenticate via OAuth first.",
+            },
+            id: (req.body as Record<string, unknown>)?.id ?? null,
+          });
         return;
       }
 

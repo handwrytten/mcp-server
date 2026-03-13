@@ -61,6 +61,25 @@ export function setupAuthRoutes(app: Express, config: OAuthConfig): void {
   // RFC 8414 — OAuth 2.0 Authorization Server Metadata
   // -----------------------------------------------------------------------
 
+  // -----------------------------------------------------------------------
+  // GET /.well-known/oauth-protected-resource (RFC 9728)
+  // Tells MCP clients where to find the authorization server metadata.
+  // -----------------------------------------------------------------------
+
+  app.get("/.well-known/oauth-protected-resource", (_req: Request, res: Response) => {
+    res.json({
+      resource: config.mcpServerUrl,
+      authorization_servers: [config.mcpServerUrl],
+      scopes_supported: SCOPES,
+      bearer_methods_supported: ["header"],
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // GET /.well-known/oauth-authorization-server
+  // RFC 8414 — OAuth 2.0 Authorization Server Metadata
+  // -----------------------------------------------------------------------
+
   app.get("/.well-known/oauth-authorization-server", (_req: Request, res: Response) => {
     res.json({
       issuer: config.mcpServerUrl,

@@ -3,6 +3,7 @@
 An [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server that lets AI assistants like Claude send real handwritten notes through [Handwrytten](https://www.handwrytten.com) — robots with real pens writing your messages on physical cards, mailed to your recipients.
 
 ## What can it do?
+What can't it do!
 
 Once connected, your AI assistant can:
 

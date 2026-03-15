@@ -71,65 +71,16 @@ const app = new App({ name: "Card Preview", version: "1.0.0" });
 // Rendering
 // ---------------------------------------------------------------------------
 
-// Load images via MCP tool call (bypasses all CSP restrictions since it
-// uses postMessage, not HTTP). The server fetches the image and returns base64.
-const b64Cache = new Map<string, string>();
-
-async function fetchImageViaMcp(url: string): Promise<string> {
-  if (!url) return "";
-  const cached = b64Cache.get(url);
-  if (cached) return cached;
-  try {
-    const result = await app.callServerTool({
-      name: "get_card_image",
-      arguments: { url },
-    });
-    const text = (result.content as any)?.find((c: any) => c.type === "text")?.text;
-    if (text) {
-      const data = JSON.parse(text);
-      if (data.dataUri) {
-        b64Cache.set(url, data.dataUri);
-        return data.dataUri;
-      }
-    }
-  } catch (e) {
-    console.error("Failed to fetch image via MCP:", url, e);
-  }
-  return "";
-}
-
-async function loadCardImages(card: Card, el: HTMLElement): Promise<void> {
-  const frontUrl = card.detailed_images?.front?.image || card.cover || "";
-
-  // Load front image first (most visible)
-  if (frontUrl) {
-    const dataUri = await fetchImageViaMcp(frontUrl);
-    const img = el.querySelector(".front-face img") as HTMLImageElement;
-    if (img && dataUri) img.src = dataUri;
-  }
-
-  // Load inside and back images in parallel (secondary)
-  const insideUrl = card.detailed_images?.inside?.image || "";
-  const backUrl = card.detailed_images?.back?.image || "";
-
-  const [insideDataUri, backDataUri] = await Promise.all([
-    insideUrl ? fetchImageViaMcp(insideUrl) : Promise.resolve(""),
-    backUrl ? fetchImageViaMcp(backUrl) : Promise.resolve(""),
-  ]);
-
-  const insideFace = el.querySelector(".inside-face") as HTMLElement;
-  if (insideFace && insideDataUri) insideFace.style.backgroundImage = `url('${insideDataUri}')`;
-
-  const backFace = el.querySelector(".back-face") as HTMLElement;
-  if (backFace && backDataUri) backFace.style.backgroundImage = `url('${backDataUri}')`;
-}
-
 function createCardElement(card: Card): HTMLElement {
   const isFlat = card.orientation === "F";
   const orientationClass =
     card.orientation === "L"
       ? "postcard__side_horizontal"
       : "postcard__side_vertical";
+
+  const frontImg = card.detailed_images?.front?.image || card.cover || "";
+  const insideImg = card.detailed_images?.inside?.image || "";
+  const backImg = card.detailed_images?.back?.image || "";
 
   const el = document.createElement("div");
   el.className = "card-item";
@@ -144,10 +95,10 @@ function createCardElement(card: Card): HTMLElement {
     <div class="scene-3d">
       <div class="postcard__side ${orientationClass} front">
         <div class="front-face">
-          <img alt="${escapeHtml(card.name)}" />
+          <img src="${escapeHtml(frontImg)}" alt="${escapeHtml(card.name)}" loading="lazy" />
         </div>
-        <div class="inside-face"></div>
-        <div class="back-face"></div>
+        <div class="inside-face" style="background-image: url('${escapeHtml(insideImg)}')"></div>
+        <div class="back-face" style="background-image: url('${escapeHtml(backImg)}')"></div>
       </div>
     </div>
     <div class="card-footer">
@@ -158,9 +109,6 @@ function createCardElement(card: Card): HTMLElement {
       </ul>
     </div>
   `;
-
-  // Load images via fetch → blob URL (bypasses CSP img-src restrictions)
-  loadCardImages(card, el);
 
   // Get references
   const scene = el.querySelector(".scene-3d") as HTMLElement;

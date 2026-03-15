@@ -20,18 +20,11 @@ import type { Express, Request, Response } from "express";
 
 const SCOPES = [
   "read:profile",
-  "read:orders",
-  "write:orders",
   "send:cards",
-  "read:cards",
-  "write:cards",
+  "read:orders",
   "read:contacts",
   "write:contacts",
-  "read:campaigns",
-  "write:campaigns",
   "read:balance",
-  "manage:billing",
-  "manage:subscriptions",
 ];
 
 // ---------------------------------------------------------------------------
@@ -68,7 +61,7 @@ export function setupAuthRoutes(app: Express, config: OAuthConfig): void {
 
   app.get("/.well-known/oauth-protected-resource", (_req: Request, res: Response) => {
     res.json({
-      resource: config.mcpServerUrl,
+      resource: `${config.mcpServerUrl}/mcp`,
       authorization_servers: [config.mcpServerUrl],
       scopes_supported: SCOPES,
       bearer_methods_supported: ["header"],
@@ -102,7 +95,7 @@ export function setupAuthRoutes(app: Express, config: OAuthConfig): void {
   // all OAuth query params. The user logs in and grants consent there.
   // -----------------------------------------------------------------------
 
-  app.get("/authorize", (req: Request, res: Response) => {
+  function handleAuthorize(req: Request, res: Response): void {
     const allowedParams = [
       "client_id",
       "redirect_uri",
@@ -113,9 +106,12 @@ export function setupAuthRoutes(app: Express, config: OAuthConfig): void {
       "code_challenge_method",
     ];
 
+    // Accept params from query string (GET) or body (POST)
+    const source = req.method === "POST" ? { ...req.query, ...req.body } : req.query;
+
     const params = new URLSearchParams();
     for (const key of allowedParams) {
-      const value = req.query[key];
+      const value = source[key];
       if (typeof value === "string") {
         params.set(key, value);
       }
@@ -123,7 +119,10 @@ export function setupAuthRoutes(app: Express, config: OAuthConfig): void {
 
     const redirectUrl = `${backendOAuthBase}/authorize?${params.toString()}`;
     res.redirect(302, redirectUrl);
-  });
+  }
+
+  app.get("/authorize", handleAuthorize);
+  app.post("/authorize", handleAuthorize);
 
   // -----------------------------------------------------------------------
   // POST /token
@@ -133,10 +132,13 @@ export function setupAuthRoutes(app: Express, config: OAuthConfig): void {
 
   app.post("/token", async (req: Request, res: Response) => {
     try {
+      console.error("Token request body:", JSON.stringify(req.body));
+
       const basicAuth = Buffer.from(
         `${config.oauthClientId}:${config.oauthClientSecret}`
       ).toString("base64");
 
+      // Forward as JSON to the backend
       const response = await fetch(`${backendOAuthBase}/token`, {
         method: "POST",
         headers: {
@@ -147,6 +149,7 @@ export function setupAuthRoutes(app: Express, config: OAuthConfig): void {
       });
 
       const data = await response.json();
+      console.error("Token response:", response.status, JSON.stringify(data));
       res.status(response.status).json(data);
     } catch (e: any) {
       console.error("Token proxy error:", e.message);

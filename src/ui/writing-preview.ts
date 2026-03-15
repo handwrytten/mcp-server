@@ -1,0 +1,212 @@
+import { App } from "@modelcontextprotocol/ext-apps";
+import renderCardToSvg, { type CardSpec } from "./postcard-renderer.js";
+
+// ---------------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------------
+
+interface FontInfo {
+  id: string | number;
+  name: string;
+  label: string;
+  mainFontUrl?: string;
+  line_spacing?: number;
+}
+
+interface WritingData {
+  message: string;
+  wishes: string;
+  inkColor: string;
+  card: { width: number; height: number; padding: number[] };
+  selectedFont: FontInfo;
+  fonts: FontInfo[];
+}
+
+let state: WritingData | null = null;
+let loadedFontBase64: string | null = null;
+let loadedFontFamily: string | null = null;
+
+// ---------------------------------------------------------------------------
+// DOM
+// ---------------------------------------------------------------------------
+
+const previewEl = document.getElementById("preview")!;
+const fontSelect = document.getElementById("font-select") as HTMLSelectElement;
+
+// ---------------------------------------------------------------------------
+// Font Loading
+// ---------------------------------------------------------------------------
+
+async function loadFont(url: string): Promise<string> {
+  const res = await fetch(url);
+  const buf = await res.arrayBuffer();
+  const bytes = new Uint8Array(buf);
+  let binary = "";
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
+function injectFontFace(familyName: string, base64: string): void {
+  // Remove previous injected style if any
+  const existing = document.getElementById("hw-font-style");
+  if (existing) existing.remove();
+
+  const style = document.createElement("style");
+  style.id = "hw-font-style";
+  style.textContent = `
+    @font-face {
+      font-family: '${familyName}';
+      src: url(data:font/truetype;base64,${base64}) format('truetype');
+      font-weight: normal;
+      font-style: normal;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+// ---------------------------------------------------------------------------
+// Rendering
+// ---------------------------------------------------------------------------
+
+async function renderPreview(): Promise<void> {
+  if (!state) return;
+
+  const font = state.selectedFont;
+  const fontUrl = font.mainFontUrl;
+
+  if (!fontUrl) {
+    previewEl.innerHTML = `<div class="loading">No font URL available</div>`;
+    return;
+  }
+
+  // Load font if not already loaded for this font
+  const fontFamily = `hw-${font.id}`;
+  if (loadedFontFamily !== fontFamily) {
+    previewEl.innerHTML = `<div class="loading">Loading font…</div>`;
+    try {
+      loadedFontBase64 = await loadFont(fontUrl);
+      loadedFontFamily = fontFamily;
+      injectFontFace(fontFamily, loadedFontBase64);
+
+      // Wait for font to be usable
+      await document.fonts.ready;
+    } catch (e: any) {
+      previewEl.innerHTML = `<div class="loading">Error loading font: ${e.message}</div>`;
+      return;
+    }
+  }
+
+  const cardSpec: CardSpec = {
+    card: {
+      width: state.card.width,
+      height: state.card.height,
+      padding: state.card.padding as [number, number, number, number],
+    },
+    message: {
+      text: state.message,
+      fontFamily,
+      lineHeight: font.line_spacing ?? 1.2,
+    },
+    wishes: state.wishes ? { text: state.wishes } : undefined,
+    fonts: {
+      main: {
+        name: fontFamily,
+        ttfBase64: loadedFontBase64!,
+      },
+    },
+    inkColor: state.inkColor,
+  };
+
+  const svg = renderCardToSvg(cardSpec);
+  previewEl.innerHTML = svg;
+}
+
+// ---------------------------------------------------------------------------
+// Font Selector
+// ---------------------------------------------------------------------------
+
+function populateFontSelect(fonts: FontInfo[], selectedId: string | number): void {
+  fontSelect.innerHTML = "";
+  for (const f of fonts) {
+    const opt = document.createElement("option");
+    opt.value = String(f.id);
+    opt.textContent = f.label || f.name;
+    if (String(f.id) === String(selectedId)) opt.selected = true;
+    fontSelect.appendChild(opt);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// MCP App
+// ---------------------------------------------------------------------------
+
+const app = new App({ name: "writing-preview", version: "1.0.0" });
+
+app.ontoolresult = async (result) => {
+  try {
+    const textContent = result.content?.find((c) => c.type === "text");
+    const text = textContent && "text" in textContent ? textContent.text : "{}";
+    const data: WritingData = JSON.parse(text);
+    state = data;
+
+    populateFontSelect(data.fonts, data.selectedFont.id);
+    await renderPreview();
+  } catch (e: any) {
+    previewEl.innerHTML = `<div class="loading">Error: ${e.message}</div>`;
+  }
+};
+
+fontSelect.addEventListener("change", async () => {
+  if (!state) return;
+
+  const fontId = fontSelect.value;
+
+  // Optimistically select new font from local list
+  const localMatch = state.fonts.find((f) => String(f.id) === fontId);
+  if (localMatch && localMatch.mainFontUrl) {
+    state.selectedFont = localMatch;
+    await renderPreview();
+    return;
+  }
+
+  // Otherwise fetch from server
+  try {
+    previewEl.innerHTML = `<div class="loading">Loading font…</div>`;
+    const result = await app.callServerTool({
+      name: "get_writing_data",
+      arguments: { fontId },
+    });
+
+    const textContent = result.content?.find((c) => c.type === "text");
+    const text = textContent && "text" in textContent ? textContent.text : "{}";
+    const data = JSON.parse(text);
+
+    state.selectedFont = data.selectedFont;
+    if (data.card) {
+      state.card = data.card;
+    }
+
+    await renderPreview();
+  } catch (e: any) {
+    previewEl.innerHTML = `<div class="loading">Error: ${e.message}</div>`;
+  }
+});
+
+// Handle theme changes
+app.onhostcontextchanged = (ctx) => {
+  if (ctx.theme === "dark") {
+    document.documentElement.style.setProperty("--bg", "#1e1e1e");
+    document.documentElement.style.setProperty("--fg", "#e0e0e0");
+    document.documentElement.style.setProperty("--border", "#444");
+    document.documentElement.style.setProperty("--input-bg", "#2a2a2a");
+  } else {
+    document.documentElement.style.setProperty("--bg", "#ffffff");
+    document.documentElement.style.setProperty("--fg", "#1a1a1a");
+    document.documentElement.style.setProperty("--border", "#e0e0e0");
+    document.documentElement.style.setProperty("--input-bg", "#fff");
+  }
+};
+
+app.connect();

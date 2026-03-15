@@ -16,21 +16,29 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsup",
+    "build": "cross-env INPUT=src/ui/card-preview.html vite build && cross-env INPUT=src/ui/writing-preview.html vite build && tsup",
+    "build:ui": "cross-env INPUT=src/ui/card-preview.html vite build && cross-env INPUT=src/ui/writing-preview.html vite build",
+    "build:server": "tsup",
     "dev": "tsx src/index.ts",
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
+    "@modelcontextprotocol/ext-apps": "^1.2.2",
     "@modelcontextprotocol/sdk": "^1.12.1",
     "handwrytten": "^1.3.0",
+    "opentype.js": "^1.3.4",
     "zod": "^3.24.4"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/node": "^22.15.3",
+    "cross-env": "^10.1.0",
     "tsup": "^8.4.0",
     "tsx": "^4.19.4",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "vite": "^7.3.1",
+    "vite-plugin-singlefile": "^2.3.0"
   },
   "engines": {
     "node": ">=18.0.0"

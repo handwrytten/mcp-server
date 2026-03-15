@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light dark">
+  <title>Card Preview</title>
+</head>
+<body>
+  <main class="main">
+    <div class="toolbar">
+      <select id="category-select">
+        <option value="">All Categories</option>
+      </select>
+      <input type="text" id="search-input" placeholder="Search cards..." />
+    </div>
+    <div id="cards-grid" class="cards-grid"></div>
+    <div id="load-more-container" class="load-more-container">
+      <button id="load-more-btn" class="load-more-btn" style="display:none;">Load More</button>
+    </div>
+    <div id="loading" class="loading">Loading cards...</div>
+  </main>
+  <script type="module" src="/src/ui/card-preview.ts"></script>
+</body>
+</html>

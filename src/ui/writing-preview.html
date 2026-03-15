@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Writing Preview</title>
+  <link rel="stylesheet" href="./writing-preview.css" />
+</head>
+<body>
+  <div id="app">
+    <div class="toolbar">
+      <label for="font-select">Font:</label>
+      <select id="font-select"></select>
+    </div>
+    <div class="preview-container">
+      <div id="preview" class="preview-card">
+        <div class="loading">Loading preview…</div>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="./writing-preview.ts"></script>
+</body>
+</html>

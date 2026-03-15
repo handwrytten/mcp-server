@@ -23,6 +23,7 @@ import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import { Handwrytten } from "handwrytten";
 
 import { registerTools } from "./tools.js";
+import { registerAppTools } from "./app-tools.js";
 import { setupAuthRoutes, extractBearerToken, type OAuthConfig } from "./auth.js";
 
 // ---------------------------------------------------------------------------
@@ -42,7 +43,7 @@ const CLEANUP_INTERVAL_MS = 5 * 60 * 1_000; // 5 minutes
 // Helper: create a McpServer with tools registered for a given client
 // ---------------------------------------------------------------------------
 
-function createMcpServer(client: Handwrytten): McpServer {
+function createMcpServer(client: Handwrytten, serverUrl?: string): McpServer {
   const server = new McpServer(
     { name: SERVER_NAME, version: SERVER_VERSION },
     {
@@ -51,6 +52,7 @@ function createMcpServer(client: Handwrytten): McpServer {
     }
   );
   registerTools(server, client);
+  registerAppTools(server, client, serverUrl);
   return server;
 }
 
@@ -88,17 +90,18 @@ interface SessionEntry {
 async function runHttp(): Promise<void> {
   const PORT = parseInt(process.env.PORT || "3000", 10);
   const MCP_SERVER_URL = process.env.MCP_SERVER_URL;
-  const HANDWRYTTEN_API_URL = (process.env.HANDWRYTTEN_API_URL || "https://api.handwrytten.com").replace(/\/+$/, "");
+  const HANDWRYTTEN_API_URL = (process.env.HANDWRYTTEN_API_URL || "https://api2.handwrytten.com").replace(/\/+$/, "");
   const OAUTH_CLIENT_ID = process.env.HANDWRYTTEN_OAUTH_CLIENT_ID;
   const OAUTH_CLIENT_SECRET = process.env.HANDWRYTTEN_OAUTH_CLIENT_SECRET;
+  const DEV_API_KEY = process.env.HANDWRYTTEN_API_KEY; // Dev mode: skip OAuth
 
   if (!MCP_SERVER_URL) {
     console.error("Error: MCP_SERVER_URL environment variable is required for HTTP mode.");
     process.exit(1);
   }
-  if (!OAUTH_CLIENT_ID || !OAUTH_CLIENT_SECRET) {
+  if (!DEV_API_KEY && (!OAUTH_CLIENT_ID || !OAUTH_CLIENT_SECRET)) {
     console.error(
-      "Error: HANDWRYTTEN_OAUTH_CLIENT_ID and HANDWRYTTEN_OAUTH_CLIENT_SECRET are required for HTTP mode."
+      "Error: Set HANDWRYTTEN_API_KEY for dev mode, or HANDWRYTTEN_OAUTH_CLIENT_ID and HANDWRYTTEN_OAUTH_CLIENT_SECRET for production."
     );
     process.exit(1);
   }
@@ -106,8 +109,8 @@ async function runHttp(): Promise<void> {
   const oauthConfig: OAuthConfig = {
     mcpServerUrl: MCP_SERVER_URL.replace(/\/+$/, ""),
     handwryttenApiUrl: HANDWRYTTEN_API_URL,
-    oauthClientId: OAUTH_CLIENT_ID,
-    oauthClientSecret: OAUTH_CLIENT_SECRET,
+    oauthClientId: OAUTH_CLIENT_ID ?? "",
+    oauthClientSecret: OAUTH_CLIENT_SECRET ?? "",
   };
 
   // -----------------------------------------------------------------------
@@ -132,8 +135,12 @@ async function runHttp(): Promise<void> {
     next();
   });
 
-  // OAuth proxy routes
-  setupAuthRoutes(app, oauthConfig);
+  // OAuth proxy routes (skip in dev mode — no client ID/secret)
+  if (OAUTH_CLIENT_ID && OAUTH_CLIENT_SECRET) {
+    setupAuthRoutes(app, oauthConfig);
+  } else {
+    console.error("Dev mode: OAuth routes disabled (using HANDWRYTTEN_API_KEY)");
+  }
 
   // -----------------------------------------------------------------------
   // Session management
@@ -158,6 +165,13 @@ async function runHttp(): Promise<void> {
   // -----------------------------------------------------------------------
 
   app.post("/mcp", async (req: Request, res: Response) => {
+    console.error("POST /mcp", {
+      sessionId: req.headers["mcp-session-id"],
+      hasAuth: !!req.headers.authorization,
+      bodyMethod: req.body?.method,
+      bodyId: req.body?.id,
+    });
+
     const sessionId = req.headers["mcp-session-id"] as string | undefined;
 
     // --- Existing session ---
@@ -170,9 +184,9 @@ async function runHttp(): Promise<void> {
 
     // --- New session (must be an initialize request) ---
     if (!sessionId && isInitializeRequest(req.body)) {
-      // Extract Bearer token
+      // Extract Bearer token (or use dev API key)
       const token = extractBearerToken(req.headers.authorization);
-      if (!token) {
+      if (!token && !DEV_API_KEY) {
         const mcpServerUrl = oauthConfig.mcpServerUrl;
         res
           .status(401)
@@ -192,8 +206,10 @@ async function runHttp(): Promise<void> {
       }
 
       // Create per-session Handwrytten client
-      const client = new Handwrytten({ accessToken: token });
-      const server = createMcpServer(client);
+      const client = token
+        ? new Handwrytten({ accessToken: token })
+        : new Handwrytten(DEV_API_KEY!);
+      const server = createMcpServer(client, MCP_SERVER_URL);
 
       const transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: () => randomUUID(),
@@ -259,6 +275,35 @@ async function runHttp(): Promise<void> {
         error: { code: -32000, message: "Session not found." },
         id: null,
       });
+    }
+  });
+
+  // -----------------------------------------------------------------------
+  // Image proxy — serves CDN images through this server so MCP App
+  // sandbox can load them (avoids CSP cross-origin issues)
+  // -----------------------------------------------------------------------
+
+  app.get("/img", async (req: Request, res: Response) => {
+    const url = req.query.url as string;
+    if (!url || (!url.startsWith("https://cdn.handwrytten.com") && !url.startsWith("https://d3e924qpzqov0g.cloudfront.net"))) {
+      res.status(400).send("Invalid URL");
+      return;
+    }
+    try {
+      const upstream = await fetch(url);
+      if (!upstream.ok) {
+        res.status(upstream.status).send("Upstream error");
+        return;
+      }
+      const contentType = upstream.headers.get("content-type");
+      if (contentType) res.set("Content-Type", contentType);
+      res.set("Cache-Control", "public, max-age=86400");
+      res.set("Access-Control-Allow-Origin", "*");
+      const buffer = Buffer.from(await upstream.arrayBuffer());
+      res.send(buffer);
+    } catch (e: any) {
+      console.error("Image proxy error:", e.message);
+      res.status(502).send("Proxy error");
     }
   });
 

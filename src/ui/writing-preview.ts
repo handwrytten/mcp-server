@@ -168,7 +168,7 @@ app.ontoolresult = async (result) => {
     const data: WritingData = JSON.parse(extractJson(text));
     state = data;
 
-    // If fontBase64 not in initial result, fetch via MCP tool
+    // Fetch font file via MCP tool (sandbox CSP blocks direct fetch)
     if (!state.fontBase64 && state.selectedFont?.mainFontUrl) {
       try {
         const fontResult = await app.callServerTool({
@@ -178,8 +178,15 @@ app.ontoolresult = async (result) => {
         const ft = fontResult.content?.find((c: any) => c.type === "text");
         const ftText = ft && "text" in ft ? ft.text : "{}";
         const ftData = JSON.parse(extractJson(ftText));
-        if (ftData.base64) state.fontBase64 = ftData.base64;
-      } catch { /* will show "No font data" */ }
+        if (ftData.base64) {
+          state.fontBase64 = ftData.base64;
+          console.log("Font loaded, base64 length:", ftData.base64.length);
+        } else {
+          console.error("No base64 in font response, keys:", Object.keys(ftData));
+        }
+      } catch (fontErr: any) {
+        console.error("Font fetch failed:", fontErr.message);
+      }
     }
 
     populateFontSelect(data.fonts, data.selectedFont.id);
@@ -207,9 +214,22 @@ fontSelect.addEventListener("change", async () => {
     const data = JSON.parse(extractJson(text));
 
     state.selectedFont = data.selectedFont;
-    state.fontBase64 = data.fontBase64;
+    state.fontBase64 = null;
+    loadedFontFamily = null; // force font reload
     if (data.card) {
       state.card = data.card;
+    }
+
+    // Fetch font file via MCP
+    if (state.selectedFont?.mainFontUrl) {
+      const fontResult = await app.callServerTool({
+        name: "get_font_file",
+        arguments: { url: state.selectedFont.mainFontUrl },
+      });
+      const ft = fontResult.content?.find((c: any) => c.type === "text");
+      const ftText = ft && "text" in ft ? ft.text : "{}";
+      const ftData = JSON.parse(extractJson(ftText));
+      if (ftData.base64) state.fontBase64 = ftData.base64;
     }
 
     await renderPreview();

@@ -16,6 +16,7 @@ import "./card-preview.css";
 interface CardImage {
   id?: number;
   image: string;
+  image_lowres?: string | null;
 }
 
 interface Card {
@@ -97,8 +98,14 @@ async function fetchImageViaMcp(url: string): Promise<string> {
   return "";
 }
 
+// Prefer lowres image, ensure CDN URL
+function pickImageUrl(img?: CardImage | null, fallback?: string): string {
+  const url = img?.image_lowres || img?.image || fallback || "";
+  return url.replace("https://d3e924qpzqov0g.cloudfront.net", "https://cdn.handwrytten.com");
+}
+
 async function loadCardImages(card: Card, el: HTMLElement): Promise<void> {
-  const frontUrl = card.detailed_images?.front?.image || card.cover || "";
+  const frontUrl = pickImageUrl(card.detailed_images?.front, card.cover);
 
   // Load front image first (most visible)
   if (frontUrl) {
@@ -108,8 +115,8 @@ async function loadCardImages(card: Card, el: HTMLElement): Promise<void> {
   }
 
   // Load inside and back images in parallel (secondary)
-  const insideUrl = card.detailed_images?.inside?.image || "";
-  const backUrl = card.detailed_images?.back?.image || "";
+  const insideUrl = pickImageUrl(card.detailed_images?.inside);
+  const backUrl = pickImageUrl(card.detailed_images?.back);
 
   const [insideDataUri, backDataUri] = await Promise.all([
     insideUrl ? fetchImageViaMcp(insideUrl) : Promise.resolve(""),

@@ -34,18 +34,26 @@ const previewEl = document.getElementById("preview")!;
 const fontSelect = document.getElementById("font-select") as HTMLSelectElement;
 
 // ---------------------------------------------------------------------------
-// Font Loading
+// MCP App instance (declared early so font loader can use it)
+// ---------------------------------------------------------------------------
+
+const app = new App({ name: "writing-preview", version: "1.0.0" });
+
+// ---------------------------------------------------------------------------
+// Font Loading (via MCP tool to bypass sandbox CSP)
 // ---------------------------------------------------------------------------
 
 async function loadFont(url: string): Promise<string> {
-  const res = await fetch(url);
-  const buf = await res.arrayBuffer();
-  const bytes = new Uint8Array(buf);
-  let binary = "";
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i]);
+  const result = await app.callServerTool({
+    name: "get_font_file",
+    arguments: { url },
+  });
+  const text = (result.content as any)?.find((c: any) => c.type === "text")?.text;
+  if (text) {
+    const data = JSON.parse(text);
+    if (data.base64) return data.base64;
   }
-  return btoa(binary);
+  throw new Error("Failed to load font via MCP");
 }
 
 function injectFontFace(familyName: string, base64: string): void {
@@ -139,10 +147,8 @@ function populateFontSelect(fonts: FontInfo[], selectedId: string | number): voi
 }
 
 // ---------------------------------------------------------------------------
-// MCP App
+// MCP App event handlers
 // ---------------------------------------------------------------------------
-
-const app = new App({ name: "writing-preview", version: "1.0.0" });
 
 app.ontoolresult = async (result) => {
   try {

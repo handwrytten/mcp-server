@@ -203,10 +203,10 @@ export function registerAppTools(
     }
   );
 
-  // Tool for the card preview app to fetch images as base64 (bypasses CSP)
+  // Tool for the card preview app to fetch images (bypasses sandbox CSP)
   server.tool(
     "get_card_image",
-    "Fetch a card image and return it as a base64 data URI. Used by the card preview app.",
+    "Fetch a card image and return it as an MCP image content block. Used by the card preview app.",
     {
       url: z.string().describe("Image URL to fetch"),
     },
@@ -218,7 +218,7 @@ export function registerAppTools(
           !url.startsWith("https://d3e924qpzqov0g.cloudfront.net")
         ) {
           return {
-            content: [{ type: "text" as const, text: JSON.stringify({ error: "Invalid URL domain" }) }],
+            content: [{ type: "text" as const, text: "Invalid URL domain" }],
             isError: true,
           };
         }
@@ -226,21 +226,54 @@ export function registerAppTools(
         const res = await fetch(url);
         if (!res.ok) {
           return {
-            content: [{ type: "text" as const, text: JSON.stringify({ error: `HTTP ${res.status}` }) }],
+            content: [{ type: "text" as const, text: `HTTP ${res.status}` }],
             isError: true,
           };
         }
 
         const buffer = Buffer.from(await res.arrayBuffer());
         const contentType = res.headers.get("content-type") || "image/jpeg";
-        const dataUri = `data:${contentType};base64,${buffer.toString("base64")}`;
 
         return {
-          content: [{ type: "text" as const, text: JSON.stringify({ dataUri }) }],
+          content: [{
+            type: "image" as const,
+            data: buffer.toString("base64"),
+            mimeType: contentType,
+          }],
         };
       } catch (e: any) {
         return {
-          content: [{ type: "text" as const, text: JSON.stringify({ error: e.message }) }],
+          content: [{ type: "text" as const, text: e.message }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  // Tool for the writing preview app to fetch font files (bypasses sandbox CSP)
+  server.tool(
+    "get_font_file",
+    "Fetch a font file and return it as base64. Used by the writing preview app.",
+    {
+      url: z.string().describe("Font file URL to fetch"),
+    },
+    async ({ url }) => {
+      try {
+        const res = await fetch(url);
+        if (!res.ok) {
+          return {
+            content: [{ type: "text" as const, text: `HTTP ${res.status}` }],
+            isError: true,
+          };
+        }
+
+        const buffer = Buffer.from(await res.arrayBuffer());
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify({ base64: buffer.toString("base64") }) }],
+        };
+      } catch (e: any) {
+        return {
+          content: [{ type: "text" as const, text: e.message }],
           isError: true,
         };
       }
@@ -331,7 +364,7 @@ export function registerAppTools(
           name: f.raw?.name || f.name,
           label: f.label || f.name,
           previewUrl: f.previewUrl,
-          mainFontUrl: f.raw?.mainFontUrl,
+          mainFontUrl: f.raw?.path || f.raw?.font_file,
           line_spacing: f.raw?.line_spacing,
         }));
 
@@ -416,7 +449,7 @@ export function registerAppTools(
           id: f.id,
           name: f.raw?.name || f.name,
           label: f.label || f.name,
-          mainFontUrl: f.raw?.mainFontUrl,
+          mainFontUrl: f.raw?.path || f.raw?.font_file,
           line_spacing: f.raw?.line_spacing,
         }));
 

@@ -19,6 +19,7 @@ interface WritingData {
   inkColor: string;
   card: { width: number; height: number; padding: number[] };
   selectedFont: FontInfo;
+  fontBase64: string | null;
   fonts: FontInfo[];
 }
 
@@ -82,10 +83,9 @@ async function renderPreview(): Promise<void> {
   if (!state) return;
 
   const font = state.selectedFont;
-  const fontUrl = font.mainFontUrl;
 
-  if (!fontUrl) {
-    previewEl.innerHTML = `<div class="loading">No font URL available</div>`;
+  if (!state.fontBase64) {
+    previewEl.innerHTML = `<div class="loading">No font data available</div>`;
     return;
   }
 
@@ -94,7 +94,7 @@ async function renderPreview(): Promise<void> {
   if (loadedFontFamily !== fontFamily) {
     previewEl.innerHTML = `<div class="loading">Loading font…</div>`;
     try {
-      loadedFontBase64 = await loadFont(fontUrl);
+      loadedFontBase64 = state.fontBase64;
       loadedFontFamily = fontFamily;
       injectFontFace(fontFamily, loadedFontBase64);
 
@@ -169,15 +169,7 @@ fontSelect.addEventListener("change", async () => {
 
   const fontId = fontSelect.value;
 
-  // Optimistically select new font from local list
-  const localMatch = state.fonts.find((f) => String(f.id) === fontId);
-  if (localMatch && localMatch.mainFontUrl) {
-    state.selectedFont = localMatch;
-    await renderPreview();
-    return;
-  }
-
-  // Otherwise fetch from server
+  // Always fetch from server (need font base64 data)
   try {
     previewEl.innerHTML = `<div class="loading">Loading font…</div>`;
     const result = await app.callServerTool({
@@ -190,6 +182,7 @@ fontSelect.addEventListener("change", async () => {
     const data = JSON.parse(text);
 
     state.selectedFont = data.selectedFont;
+    state.fontBase64 = data.fontBase64;
     if (data.card) {
       state.card = data.card;
     }

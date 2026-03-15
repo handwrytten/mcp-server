@@ -1,5 +1,5 @@
 import { App } from "@modelcontextprotocol/ext-apps";
-import renderCardToSvg, { type CardSpec } from "./postcard-renderer.js";
+import "./writing-preview.css";
 
 // ---------------------------------------------------------------------------
 // State
@@ -9,23 +9,19 @@ interface FontInfo {
   id: string | number;
   name: string;
   label: string;
-  mainFontUrl?: string;
-  line_spacing?: number;
 }
 
 interface WritingData {
-  message: string;
-  wishes: string;
-  inkColor: string;
-  card: { width: number; height: number; padding: number[] };
+  svg: string;
   selectedFont: FontInfo;
-  fontBase64: string | null;
   fonts: FontInfo[];
+  // Kept for re-rendering on font switch
+  message?: string;
+  wishes?: string;
+  inkColor?: string;
 }
 
 let state: WritingData | null = null;
-let loadedFontBase64: string | null = null;
-let loadedFontFamily: string | null = null;
 
 // ---------------------------------------------------------------------------
 // DOM
@@ -35,105 +31,19 @@ const previewEl = document.getElementById("preview")!;
 const fontSelect = document.getElementById("font-select") as HTMLSelectElement;
 
 // ---------------------------------------------------------------------------
-// MCP App instance (declared early so font loader can use it)
+// MCP App
 // ---------------------------------------------------------------------------
 
 const app = new App({ name: "writing-preview", version: "1.0.0" });
 
-// ---------------------------------------------------------------------------
-// Font Loading (via MCP tool to bypass sandbox CSP)
-// ---------------------------------------------------------------------------
-
-async function loadFont(url: string): Promise<string> {
-  const result = await app.callServerTool({
-    name: "get_font_file",
-    arguments: { url },
-  });
-  const text = (result.content as any)?.find((c: any) => c.type === "text")?.text;
-  if (text) {
-    const data = JSON.parse(text);
-    if (data.base64) return data.base64;
-  }
-  throw new Error("Failed to load font via MCP");
+// Extract JSON from MCP result text (handles wrapped responses)
+function extractJson(text: string): string {
+  const trimmed = text.trim();
+  if (trimmed.startsWith("{") || trimmed.startsWith("[")) return trimmed;
+  const jsonStart = trimmed.indexOf("{");
+  if (jsonStart >= 0) return trimmed.slice(jsonStart);
+  return "{}";
 }
-
-function injectFontFace(familyName: string, base64: string): void {
-  // Remove previous injected style if any
-  const existing = document.getElementById("hw-font-style");
-  if (existing) existing.remove();
-
-  const style = document.createElement("style");
-  style.id = "hw-font-style";
-  style.textContent = `
-    @font-face {
-      font-family: '${familyName}';
-      src: url(data:font/truetype;base64,${base64}) format('truetype');
-      font-weight: normal;
-      font-style: normal;
-    }
-  `;
-  document.head.appendChild(style);
-}
-
-// ---------------------------------------------------------------------------
-// Rendering
-// ---------------------------------------------------------------------------
-
-async function renderPreview(): Promise<void> {
-  if (!state) return;
-
-  const font = state.selectedFont;
-
-  if (!state.fontBase64) {
-    previewEl.innerHTML = `<div class="loading">No font data available</div>`;
-    return;
-  }
-
-  // Load font if not already loaded for this font
-  const fontFamily = `hw-${font.id}`;
-  if (loadedFontFamily !== fontFamily) {
-    previewEl.innerHTML = `<div class="loading">Loading font…</div>`;
-    try {
-      loadedFontBase64 = state.fontBase64;
-      loadedFontFamily = fontFamily;
-      injectFontFace(fontFamily, loadedFontBase64);
-
-      // Wait for font to be usable
-      await document.fonts.ready;
-    } catch (e: any) {
-      previewEl.innerHTML = `<div class="loading">Error loading font: ${e.message}</div>`;
-      return;
-    }
-  }
-
-  const cardSpec: CardSpec = {
-    card: {
-      width: state.card.width,
-      height: state.card.height,
-      padding: state.card.padding as [number, number, number, number],
-    },
-    message: {
-      text: state.message,
-      fontFamily,
-      lineHeight: font.line_spacing ?? 1.2,
-    },
-    wishes: state.wishes ? { text: state.wishes } : undefined,
-    fonts: {
-      main: {
-        name: fontFamily,
-        ttfBase64: loadedFontBase64!,
-      },
-    },
-    inkColor: state.inkColor,
-  };
-
-  const svg = renderCardToSvg(cardSpec);
-  previewEl.innerHTML = svg;
-}
-
-// ---------------------------------------------------------------------------
-// Font Selector
-// ---------------------------------------------------------------------------
 
 function populateFontSelect(fonts: FontInfo[], selectedId: string | number): void {
   fontSelect.innerHTML = "";
@@ -146,21 +56,15 @@ function populateFontSelect(fonts: FontInfo[], selectedId: string | number): voi
   }
 }
 
-// ---------------------------------------------------------------------------
-// MCP App event handlers
-// ---------------------------------------------------------------------------
-
-// Extract JSON from MCP result text (handles wrapped responses)
-function extractJson(text: string): string {
-  // Try as-is first
-  const trimmed = text.trim();
-  if (trimmed.startsWith("{") || trimmed.startsWith("[")) return trimmed;
-  // Try to find JSON object in the string
-  const jsonStart = trimmed.indexOf("{");
-  if (jsonStart >= 0) return trimmed.slice(jsonStart);
-  return "{}";
+function renderSvg(svg: string): void {
+  if (svg) {
+    previewEl.innerHTML = svg;
+  } else {
+    previewEl.innerHTML = `<div class="loading">No preview available</div>`;
+  }
 }
 
+// Initial tool result from preview_writing
 app.ontoolresult = async (result) => {
   try {
     const textContent = result.content?.find((c) => c.type === "text");
@@ -168,71 +72,38 @@ app.ontoolresult = async (result) => {
     const data: WritingData = JSON.parse(extractJson(text));
     state = data;
 
-    // Fetch font file via MCP tool (sandbox CSP blocks direct fetch)
-    if (!state.fontBase64 && state.selectedFont?.mainFontUrl) {
-      try {
-        const fontResult = await app.callServerTool({
-          name: "get_font_file",
-          arguments: { url: state.selectedFont.mainFontUrl },
-        });
-        const ft = fontResult.content?.find((c: any) => c.type === "text");
-        const ftText = ft && "text" in ft ? ft.text : "{}";
-        const ftData = JSON.parse(extractJson(ftText));
-        if (ftData.base64) {
-          state.fontBase64 = ftData.base64;
-          console.log("Font loaded, base64 length:", ftData.base64.length);
-        } else {
-          console.error("No base64 in font response, keys:", Object.keys(ftData));
-        }
-      } catch (fontErr: any) {
-        console.error("Font fetch failed:", fontErr.message);
-      }
-    }
-
-    populateFontSelect(data.fonts, data.selectedFont.id);
-    await renderPreview();
+    populateFontSelect(data.fonts || [], data.selectedFont?.id);
+    renderSvg(data.svg);
   } catch (e: any) {
     previewEl.innerHTML = `<div class="loading">Error: ${e.message}</div>`;
   }
 };
 
+// Font selector — re-render with new font via server
 fontSelect.addEventListener("change", async () => {
   if (!state) return;
 
   const fontId = fontSelect.value;
 
-  // Always fetch from server (need font base64 data)
   try {
     previewEl.innerHTML = `<div class="loading">Loading font…</div>`;
     const result = await app.callServerTool({
       name: "get_writing_data",
-      arguments: { fontId },
+      arguments: {
+        fontId,
+        message: state.message || "",
+        wishes: state.wishes || "",
+        inkColor: state.inkColor || "#0040ac",
+      },
     });
 
-    const textContent = result.content?.find((c) => c.type === "text");
+    const textContent = result.content?.find((c: any) => c.type === "text");
     const text = textContent && "text" in textContent ? textContent.text : "{}";
     const data = JSON.parse(extractJson(text));
 
     state.selectedFont = data.selectedFont;
-    state.fontBase64 = null;
-    loadedFontFamily = null; // force font reload
-    if (data.card) {
-      state.card = data.card;
-    }
-
-    // Fetch font file via MCP
-    if (state.selectedFont?.mainFontUrl) {
-      const fontResult = await app.callServerTool({
-        name: "get_font_file",
-        arguments: { url: state.selectedFont.mainFontUrl },
-      });
-      const ft = fontResult.content?.find((c: any) => c.type === "text");
-      const ftText = ft && "text" in ft ? ft.text : "{}";
-      const ftData = JSON.parse(extractJson(ftText));
-      if (ftData.base64) state.fontBase64 = ftData.base64;
-    }
-
-    await renderPreview();
+    state.svg = data.svg;
+    renderSvg(data.svg);
   } catch (e: any) {
     previewEl.innerHTML = `<div class="loading">Error: ${e.message}</div>`;
   }

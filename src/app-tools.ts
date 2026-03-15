@@ -20,6 +20,8 @@ import { z } from "zod";
 import { Handwrytten } from "handwrytten";
 import fs from "node:fs/promises";
 import path from "node:path";
+import opentype from "opentype.js";
+import { renderCardToSvgServer } from "./server-postcard-renderer.js";
 
 // Works both from source (.ts) and compiled (dist/.js)
 // Vite outputs HTML to dist/src/ui/, tsup outputs JS to dist/
@@ -408,17 +410,50 @@ export function registerAppTools(
           ],
         };
 
+        // Fetch font file and render SVG server-side
+        let svg = "";
+        if (selectedFont.mainFontUrl) {
+          try {
+            const fontRes = await fetch(selectedFont.mainFontUrl);
+            if (fontRes.ok) {
+              const fontBuffer = Buffer.from(await fontRes.arrayBuffer());
+              const font = opentype.parse(fontBuffer.buffer.slice(
+                fontBuffer.byteOffset,
+                fontBuffer.byteOffset + fontBuffer.byteLength
+              ));
+              svg = renderCardToSvgServer(
+                {
+                  card: {
+                    width: card.width,
+                    height: card.height,
+                    padding: card.padding as [number, number, number, number],
+                  },
+                  message: {
+                    text: message,
+                    lineHeight: selectedFont.line_spacing ?? undefined,
+                  },
+                  wishes: wishes ? { text: wishes } : undefined,
+                  inkColor: inkColor || "#0040ac",
+                },
+                font
+              );
+            }
+          } catch (fontErr: any) {
+            console.error("[preview_writing] Font render error:", fontErr.message);
+          }
+        }
+
         return {
           content: [
             {
               type: "text",
               text: JSON.stringify({
+                svg,
+                selectedFont,
+                fonts,
                 message,
                 wishes: wishes || "",
                 inkColor: inkColor || "#0040ac",
-                card,
-                selectedFont,
-                fonts,
               }),
             },
           ],
@@ -432,15 +467,18 @@ export function registerAppTools(
     }
   );
 
-  // Tool for writing preview app to fetch font data when user switches fonts
+  // Tool for writing preview app to re-render with a different font
   server.tool(
     "get_writing_data",
-    "Get font metadata for writing preview. Used by the writing preview app.",
+    "Re-render writing preview with a different font. Used by the writing preview app.",
     {
       fontId: z.string().describe("Font ID or label"),
+      message: z.string().describe("Message text to render"),
+      wishes: z.string().optional().describe("Wishes/closing text"),
+      inkColor: z.string().optional().describe("Ink color hex"),
       cardId: z.string().optional().describe("Card ID for dimensions"),
     },
-    async ({ fontId, cardId }) => {
+    async ({ fontId, message, wishes, inkColor, cardId }) => {
       try {
         const [fontsRaw, cardData] = await Promise.all([
           client.fonts.list(),
@@ -489,11 +527,44 @@ export function registerAppTools(
           ],
         };
 
+        // Render SVG server-side
+        let svg = "";
+        if (selectedFont.mainFontUrl) {
+          try {
+            const fontRes = await fetch(selectedFont.mainFontUrl);
+            if (fontRes.ok) {
+              const fontBuffer = Buffer.from(await fontRes.arrayBuffer());
+              const font = opentype.parse(fontBuffer.buffer.slice(
+                fontBuffer.byteOffset,
+                fontBuffer.byteOffset + fontBuffer.byteLength
+              ));
+              svg = renderCardToSvgServer(
+                {
+                  card: {
+                    width: card.width,
+                    height: card.height,
+                    padding: card.padding as [number, number, number, number],
+                  },
+                  message: {
+                    text: message,
+                    lineHeight: selectedFont.line_spacing ?? undefined,
+                  },
+                  wishes: wishes ? { text: wishes } : undefined,
+                  inkColor: inkColor || "#0040ac",
+                },
+                font
+              );
+            }
+          } catch (fontErr: any) {
+            console.error("[get_writing_data] Font render error:", fontErr.message);
+          }
+        }
+
         return {
           content: [
             {
               type: "text" as const,
-              text: JSON.stringify({ selectedFont, card }),
+              text: JSON.stringify({ svg, selectedFont }),
             },
           ],
         };

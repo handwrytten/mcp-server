@@ -259,7 +259,9 @@ export function registerAppTools(
     },
     async ({ url }) => {
       try {
+        console.log("[get_font_file] Fetching:", url);
         const res = await fetch(url);
+        console.log("[get_font_file] Status:", res.status, "Content-Type:", res.headers.get("content-type"));
         if (!res.ok) {
           return {
             content: [{ type: "text" as const, text: `HTTP ${res.status}` }],
@@ -268,10 +270,12 @@ export function registerAppTools(
         }
 
         const buffer = Buffer.from(await res.arrayBuffer());
+        console.log("[get_font_file] Font size:", buffer.length, "bytes, base64 length:", buffer.toString("base64").length);
         return {
           content: [{ type: "text" as const, text: JSON.stringify({ base64: buffer.toString("base64") }) }],
         };
       } catch (e: any) {
+        console.error("[get_font_file] Error:", e.message);
         return {
           content: [{ type: "text" as const, text: e.message }],
           isError: true,

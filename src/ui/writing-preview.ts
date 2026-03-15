@@ -150,12 +150,37 @@ function populateFontSelect(fonts: FontInfo[], selectedId: string | number): voi
 // MCP App event handlers
 // ---------------------------------------------------------------------------
 
+// Extract JSON from MCP result text (handles wrapped responses)
+function extractJson(text: string): string {
+  // Try as-is first
+  const trimmed = text.trim();
+  if (trimmed.startsWith("{") || trimmed.startsWith("[")) return trimmed;
+  // Try to find JSON object in the string
+  const jsonStart = trimmed.indexOf("{");
+  if (jsonStart >= 0) return trimmed.slice(jsonStart);
+  return "{}";
+}
+
 app.ontoolresult = async (result) => {
   try {
     const textContent = result.content?.find((c) => c.type === "text");
     const text = textContent && "text" in textContent ? textContent.text : "{}";
-    const data: WritingData = JSON.parse(text);
+    const data: WritingData = JSON.parse(extractJson(text));
     state = data;
+
+    // If fontBase64 not in initial result, fetch via MCP tool
+    if (!state.fontBase64 && state.selectedFont?.mainFontUrl) {
+      try {
+        const fontResult = await app.callServerTool({
+          name: "get_font_file",
+          arguments: { url: state.selectedFont.mainFontUrl },
+        });
+        const ft = fontResult.content?.find((c: any) => c.type === "text");
+        const ftText = ft && "text" in ft ? ft.text : "{}";
+        const ftData = JSON.parse(extractJson(ftText));
+        if (ftData.base64) state.fontBase64 = ftData.base64;
+      } catch { /* will show "No font data" */ }
+    }
 
     populateFontSelect(data.fonts, data.selectedFont.id);
     await renderPreview();
@@ -179,7 +204,7 @@ fontSelect.addEventListener("change", async () => {
 
     const textContent = result.content?.find((c) => c.type === "text");
     const text = textContent && "text" in textContent ? textContent.text : "{}";
-    const data = JSON.parse(text);
+    const data = JSON.parse(extractJson(text));
 
     state.selectedFont = data.selectedFont;
     state.fontBase64 = data.fontBase64;

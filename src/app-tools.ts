@@ -380,20 +380,6 @@ export function registerAppTools(
           if (match) selectedFont = match;
         }
 
-        // Pre-fetch the selected font file as base64 (sandbox CSP blocks fetch)
-        let fontBase64: string | null = null;
-        if (selectedFont.mainFontUrl) {
-          try {
-            const fontRes = await fetch(selectedFont.mainFontUrl);
-            if (fontRes.ok) {
-              const buf = Buffer.from(await fontRes.arrayBuffer());
-              fontBase64 = buf.toString("base64");
-            }
-          } catch (e: any) {
-            console.error("Failed to fetch font:", selectedFont.mainFontUrl, e.message);
-          }
-        }
-
         // Card dimensions (from card data or defaults)
         const card = {
           width: cardData?.raw?.closed_width
@@ -428,7 +414,6 @@ export function registerAppTools(
                 inkColor: inkColor || "#0040ac",
                 card,
                 selectedFont,
-                fontBase64,
                 fonts,
               }),
             },
@@ -477,20 +462,6 @@ export function registerAppTools(
         );
         if (match) selectedFont = match;
 
-        // Pre-fetch the selected font file as base64
-        let fontBase64: string | null = null;
-        if (selectedFont.mainFontUrl) {
-          try {
-            const fontRes = await fetch(selectedFont.mainFontUrl);
-            if (fontRes.ok) {
-              const buf = Buffer.from(await fontRes.arrayBuffer());
-              fontBase64 = buf.toString("base64");
-            }
-          } catch (e: any) {
-            console.error("Failed to fetch font:", selectedFont.mainFontUrl, e.message);
-          }
-        }
-
         const card = {
           width: cardData?.raw?.closed_width
             ? parseFloat(cardData.raw.closed_width) * 96
@@ -518,7 +489,7 @@ export function registerAppTools(
           content: [
             {
               type: "text" as const,
-              text: JSON.stringify({ selectedFont, fontBase64, card }),
+              text: JSON.stringify({ selectedFont, card }),
             },
           ],
         };

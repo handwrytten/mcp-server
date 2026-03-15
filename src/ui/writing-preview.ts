@@ -13,6 +13,7 @@ interface FontInfo {
 
 interface WritingData {
   svg: string;
+  renderError?: string;
   selectedFont: FontInfo;
   fonts: FontInfo[];
   // Kept for re-rendering on font switch
@@ -56,11 +57,11 @@ function populateFontSelect(fonts: FontInfo[], selectedId: string | number): voi
   }
 }
 
-function renderSvg(svg: string): void {
+function renderSvg(svg: string, error?: string): void {
   if (svg) {
     previewEl.innerHTML = svg;
   } else {
-    previewEl.innerHTML = `<div class="loading">No preview available</div>`;
+    previewEl.innerHTML = `<div class="loading">${error || "No preview available"}</div>`;
   }
 }
 
@@ -73,7 +74,7 @@ app.ontoolresult = async (result) => {
     state = data;
 
     populateFontSelect(data.fonts || [], data.selectedFont?.id);
-    renderSvg(data.svg);
+    renderSvg(data.svg, data.renderError);
   } catch (e: any) {
     previewEl.innerHTML = `<div class="loading">Error: ${e.message}</div>`;
   }

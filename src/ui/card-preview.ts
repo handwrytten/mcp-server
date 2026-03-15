@@ -25,6 +25,12 @@ function pickImageUrl(img?: CardImage | null, fallback?: string): string {
   return url.replace("https://d3e924qpzqov0g.cloudfront.net", "https://cdn.handwrytten.com");
 }
 
+// Full-res fallback URL
+function pickFullResUrl(img?: CardImage | null, fallback?: string): string {
+  const url = img?.image || fallback || "";
+  return url.replace("https://d3e924qpzqov0g.cloudfront.net", "https://cdn.handwrytten.com");
+}
+
 interface Card {
   id: number;
   name: string;
@@ -104,23 +110,34 @@ async function fetchImageViaMcp(url: string): Promise<string> {
   return "";
 }
 
-async function loadCardImages(card: Card, el: HTMLElement): Promise<void> {
-  const frontUrl = pickImageUrl(card.detailed_images?.front, card.cover);
-
-  // Load front image first (most visible)
-  if (frontUrl) {
-    const dataUri = await fetchImageViaMcp(frontUrl);
-    const img = el.querySelector(".front-face img") as HTMLImageElement;
-    if (img && dataUri) img.src = dataUri;
+// Try lowres first, fall back to full-res on failure
+async function fetchImageWithFallback(
+  img?: CardImage | null,
+  fallback?: string
+): Promise<string> {
+  const lowres = pickImageUrl(img, fallback);
+  if (lowres) {
+    const result = await fetchImageViaMcp(lowres);
+    if (result) return result;
   }
+  // Fallback to full-res if lowres failed
+  const fullres = pickFullResUrl(img, fallback);
+  if (fullres && fullres !== lowres) {
+    return fetchImageViaMcp(fullres);
+  }
+  return "";
+}
+
+async function loadCardImages(card: Card, el: HTMLElement): Promise<void> {
+  // Load front image first (most visible)
+  const frontDataUri = await fetchImageWithFallback(card.detailed_images?.front, card.cover);
+  const img = el.querySelector(".front-face img") as HTMLImageElement;
+  if (img && frontDataUri) img.src = frontDataUri;
 
   // Load inside and back images in parallel (secondary)
-  const insideUrl = pickImageUrl(card.detailed_images?.inside);
-  const backUrl = pickImageUrl(card.detailed_images?.back);
-
   const [insideDataUri, backDataUri] = await Promise.all([
-    insideUrl ? fetchImageViaMcp(insideUrl) : Promise.resolve(""),
-    backUrl ? fetchImageViaMcp(backUrl) : Promise.resolve(""),
+    fetchImageWithFallback(card.detailed_images?.inside),
+    fetchImageWithFallback(card.detailed_images?.back),
   ]);
 
   const insideFace = el.querySelector(".inside-face") as HTMLElement;

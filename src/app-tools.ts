@@ -412,15 +412,20 @@ export function registerAppTools(
 
         // Fetch font file and render SVG server-side
         let svg = "";
+        let renderError = "";
+        console.log("[preview_writing] Font URL:", selectedFont.mainFontUrl);
         if (selectedFont.mainFontUrl) {
           try {
             const fontRes = await fetch(selectedFont.mainFontUrl);
+            console.log("[preview_writing] Font fetch status:", fontRes.status);
             if (fontRes.ok) {
               const fontBuffer = Buffer.from(await fontRes.arrayBuffer());
+              console.log("[preview_writing] Font buffer size:", fontBuffer.length);
               const font = opentype.parse(fontBuffer.buffer.slice(
                 fontBuffer.byteOffset,
                 fontBuffer.byteOffset + fontBuffer.byteLength
               ));
+              console.log("[preview_writing] Font parsed, glyphs:", font.glyphs.length);
               svg = renderCardToSvgServer(
                 {
                   card: {
@@ -437,10 +442,16 @@ export function registerAppTools(
                 },
                 font
               );
+              console.log("[preview_writing] SVG rendered, length:", svg.length);
+            } else {
+              renderError = `Font fetch failed: HTTP ${fontRes.status}`;
             }
           } catch (fontErr: any) {
-            console.error("[preview_writing] Font render error:", fontErr.message);
+            renderError = fontErr.message;
+            console.error("[preview_writing] Font render error:", fontErr.message, fontErr.stack);
           }
+        } else {
+          renderError = "No font URL found";
         }
 
         return {
@@ -449,6 +460,7 @@ export function registerAppTools(
               type: "text",
               text: JSON.stringify({
                 svg,
+                renderError,
                 selectedFont,
                 fonts,
                 message,

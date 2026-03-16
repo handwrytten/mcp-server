@@ -240,14 +240,35 @@ function createCardElement(card: Card): HTMLElement {
   return el;
 }
 
+// Queue for loading images — limits concurrent MCP tool calls
+const imageLoadQueue: Array<{ card: Card; el: HTMLElement }> = [];
+let imageLoadRunning = 0;
+const MAX_CONCURRENT_LOADS = 2;
+
+async function processImageQueue() {
+  while (imageLoadQueue.length > 0 && imageLoadRunning < MAX_CONCURRENT_LOADS) {
+    const item = imageLoadQueue.shift();
+    if (!item) break;
+    imageLoadRunning++;
+    loadCardImages(item.card, item.el).finally(() => {
+      imageLoadRunning--;
+      processImageQueue();
+    });
+  }
+}
+
 function renderCards(cards: Card[], append = false) {
   if (!append) {
     cardsGrid.innerHTML = "";
   }
 
   cards.forEach((card) => {
-    cardsGrid.appendChild(createCardElement(card));
+    const el = createCardElement(card);
+    cardsGrid.appendChild(el);
+    // Queue image loading instead of loading all at once
+    imageLoadQueue.push({ card, el });
   });
+  processImageQueue();
 
   loadingEl.classList.add("hidden");
   loadMoreBtn.style.display = cards.length >= 20 ? "block" : "none";

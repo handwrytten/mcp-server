@@ -225,7 +225,7 @@ export function registerAppTools(
           };
         }
 
-        const res = await fetch(url);
+        const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
         if (!res.ok) {
           return {
             content: [{ type: "text" as const, text: `HTTP ${res.status}` }],

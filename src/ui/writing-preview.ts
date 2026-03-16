@@ -68,9 +68,14 @@ function renderSvg(svg: string, error?: string): void {
 // Initial tool result from preview_writing
 app.ontoolresult = async (result) => {
   try {
+    console.log("[writing-preview] Raw result content types:", result.content?.map((c: any) => c.type));
     const textContent = result.content?.find((c) => c.type === "text");
-    const text = textContent && "text" in textContent ? textContent.text : "{}";
+    const rawText = textContent && "text" in textContent ? textContent.text : null;
+    console.log("[writing-preview] Raw text (first 500):", rawText?.substring(0, 500));
+    const text = rawText || "{}";
     const data: WritingData = JSON.parse(extractJson(text));
+    console.log("[writing-preview] Parsed data keys:", Object.keys(data));
+    console.log("[writing-preview] svg length:", data.svg?.length, "fonts count:", data.fonts?.length, "renderError:", data.renderError);
     state = data;
 
     populateFontSelect(data.fonts || [], data.selectedFont?.id);

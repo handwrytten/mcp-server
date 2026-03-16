@@ -35,7 +35,11 @@ const fontSelect = document.getElementById("font-select") as HTMLSelectElement;
 // MCP App
 // ---------------------------------------------------------------------------
 
-const app = new App({ name: "writing-preview", version: "1.0.0" });
+const app = new App(
+  { name: "writing-preview", version: "1.0.0" },
+  {},
+  { autoResize: true },
+);
 
 // Extract JSON from MCP result text (handles wrapped responses)
 function extractJson(text: string): string {

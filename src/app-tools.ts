@@ -454,6 +454,9 @@ export function registerAppTools(
           renderError = "No font URL found";
         }
 
+        // Strip fonts to minimum (keep response small for MCP context limit)
+        const fontsMinimal = fonts.map((f: any) => ({ id: f.id, label: f.label }));
+
         return {
           content: [
             {
@@ -461,8 +464,8 @@ export function registerAppTools(
               text: JSON.stringify({
                 svg,
                 renderError,
-                selectedFont,
-                fonts,
+                selectedFont: { id: selectedFont.id, label: selectedFont.label },
+                fonts: fontsMinimal,
                 message,
                 wishes: wishes || "",
                 inkColor: inkColor || "#0040ac",
@@ -576,7 +579,7 @@ export function registerAppTools(
           content: [
             {
               type: "text" as const,
-              text: JSON.stringify({ svg, selectedFont }),
+              text: JSON.stringify({ svg, selectedFont: { id: selectedFont.id, label: selectedFont.label } }),
             },
           ],
         };

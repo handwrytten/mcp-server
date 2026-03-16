@@ -516,7 +516,7 @@ export function renderCardToSvgServer(
 
       // Convert text to SVG path using opentype.js
       const path = font.getPath(line.text, lineStartX, currentY, messageFontSize);
-      svgContent += `<path d="${path.toPathData(2)}" fill="${inkColor}"/>\n`;
+      svgContent += `<path d="${path.toPathData(1)}" fill="${inkColor}"/>\n`;
       isFirstLine = false;
     }
   });
@@ -542,7 +542,7 @@ export function renderCardToSvgServer(
         }
 
         const path = font.getPath(line.text, wishesX, currentY, finalWishes!.fontSize);
-        svgContent += `<path d="${path.toPathData(2)}" fill="${inkColor}"/>\n`;
+        svgContent += `<path d="${path.toPathData(1)}" fill="${inkColor}"/>\n`;
       }
     });
   }

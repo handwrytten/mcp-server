@@ -69,14 +69,29 @@ function renderSvg(svg: string, error?: string): void {
     // so every character is in exactly the same position — just uniformly scaled up.
     const svgEl = previewEl.querySelector("svg");
     if (svgEl) {
-      svgEl.setAttribute("width", "100%");
-      svgEl.removeAttribute("height");
-      svgEl.setAttribute("preserveAspectRatio", "xMinYMin meet");
-      svgEl.style.display = "block";
+      // Calculate the actual display height based on container width and card aspect ratio
+      const vb = svgEl.getAttribute("viewBox")?.split(" ").map(Number);
+      if (vb && vb.length === 4) {
+        const aspectRatio = vb[3] / vb[2]; // height / width
+        const containerWidth = previewEl.offsetWidth || 800;
+        const displayHeight = Math.ceil(containerWidth * aspectRatio);
+        svgEl.setAttribute("width", "100%");
+        svgEl.setAttribute("height", String(displayHeight));
+        svgEl.setAttribute("preserveAspectRatio", "xMinYMin meet");
+        svgEl.style.display = "block";
+      }
     }
-    // Make the preview container fill the widget width
     previewEl.style.width = "100%";
     previewEl.style.maxWidth = "none";
+    // Force a spacer after the card to push iframe height
+    let spacer = document.getElementById("height-spacer");
+    if (!spacer) {
+      spacer = document.createElement("div");
+      spacer.id = "height-spacer";
+      document.body.appendChild(spacer);
+    }
+    spacer.style.height = "1px";
+    spacer.style.width = "1px";
   } else {
     previewEl.innerHTML = `<div class="loading">${error || "No preview available"}</div>`;
   }

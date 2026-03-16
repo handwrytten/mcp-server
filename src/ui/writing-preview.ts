@@ -60,16 +60,19 @@ function populateFontSelect(fonts: FontInfo[], selectedId: string | number): voi
 function renderSvg(svg: string, error?: string): void {
   if (svg) {
     previewEl.innerHTML = svg;
-    // Scale SVG to fill container width while preserving exact aspect ratio
-    // The viewBox (e.g. "0 0 672 480") defines the coordinate space matching the card
-    // Setting width=100% + preserveAspectRatio ensures every character stays in
-    // exactly the same position as on app.handwrytten.com, just uniformly scaled.
+    // Scale SVG to fill full container width, preserving exact card aspect ratio.
+    // The viewBox keeps the coordinate space identical to app.handwrytten.com,
+    // so every character is in exactly the same position — just uniformly scaled up.
     const svgEl = previewEl.querySelector("svg");
     if (svgEl) {
       svgEl.setAttribute("width", "100%");
       svgEl.removeAttribute("height");
       svgEl.setAttribute("preserveAspectRatio", "xMinYMin meet");
+      svgEl.style.display = "block";
     }
+    // Make the preview container fill the widget width
+    previewEl.style.width = "100%";
+    previewEl.style.maxWidth = "none";
   } else {
     previewEl.innerHTML = `<div class="loading">${error || "No preview available"}</div>`;
   }

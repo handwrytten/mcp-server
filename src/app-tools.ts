@@ -21,7 +21,17 @@ import { Handwrytten } from "handwrytten";
 import fs from "node:fs/promises";
 import path from "node:path";
 import opentype from "opentype.js";
+import { Resvg } from "@resvg/resvg-js";
 import { renderCardToSvgServer } from "./server-postcard-renderer.js";
+
+/** Convert an SVG string to a base64-encoded PNG. */
+function svgToPngBase64(svg: string): string {
+  const resvg = new Resvg(svg, {
+    fitTo: { mode: "width" as const, value: 800 },
+  });
+  const pngData = resvg.render();
+  return pngData.asPng().toString("base64");
+}
 
 // Works both from source (.ts) and compiled (dist/.js)
 // Vite outputs HTML to dist/src/ui/, tsup outputs JS to dist/
@@ -64,7 +74,7 @@ export function registerAppTools(
 
   registerAppTool(
     server,
-    "Preview Cards",
+    "Preview-Cards",
     {
       title: "Browse Cards",
       description:
@@ -311,7 +321,7 @@ export function registerAppTools(
 
   registerAppTool(
     server,
-    "Preview Writing",
+    "Preview-Writing",
     {
       title: "Preview Writing",
       description:
@@ -457,22 +467,35 @@ export function registerAppTools(
         // Strip fonts to minimum (keep response small for MCP context limit)
         const fontsMinimal = fonts.map((f: any) => ({ id: f.id, label: f.label }));
 
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify({
-                svg,
-                renderError,
-                selectedFont: { id: selectedFont.id, label: selectedFont.label },
-                fonts: fontsMinimal,
-                message,
-                wishes: wishes || "",
-                inkColor: inkColor || "#0040ac",
-              }),
-            },
-          ],
-        };
+        // Build response: PNG image if SVG was rendered, plus metadata as text
+        const content: CallToolResult["content"] = [];
+
+        if (svg) {
+          try {
+            const pngBase64 = svgToPngBase64(svg);
+            content.push({
+              type: "image" as const,
+              data: pngBase64,
+              mimeType: "image/png",
+            });
+          } catch (pngErr: any) {
+            renderError = renderError || `PNG conversion failed: ${pngErr.message}`;
+          }
+        }
+
+        content.push({
+          type: "text",
+          text: JSON.stringify({
+            renderError,
+            selectedFont: { id: selectedFont.id, label: selectedFont.label },
+            fonts: fontsMinimal,
+            message,
+            wishes: wishes || "",
+            inkColor: inkColor || "#0040ac",
+          }),
+        });
+
+        return { content };
       } catch (e: any) {
         return {
           content: [{ type: "text", text: `Error: ${e.message}` }],
@@ -575,14 +598,27 @@ export function registerAppTools(
           }
         }
 
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: JSON.stringify({ svg, selectedFont: { id: selectedFont.id, label: selectedFont.label } }),
-            },
-          ],
-        };
+        const content: CallToolResult["content"] = [];
+
+        if (svg) {
+          try {
+            const pngBase64 = svgToPngBase64(svg);
+            content.push({
+              type: "image" as const,
+              data: pngBase64,
+              mimeType: "image/png",
+            });
+          } catch (pngErr: any) {
+            console.error("[get_writing_data] PNG conversion error:", pngErr.message);
+          }
+        }
+
+        content.push({
+          type: "text" as const,
+          text: JSON.stringify({ selectedFont: { id: selectedFont.id, label: selectedFont.label } }),
+        });
+
+        return { content };
       } catch (e: any) {
         return {
           content: [{ type: "text" as const, text: `Error: ${e.message}` }],

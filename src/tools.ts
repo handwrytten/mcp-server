@@ -30,22 +30,6 @@ function err(message: string): { content: { type: "text"; text: string }[]; isEr
 }
 
 // ---------------------------------------------------------------------------
-// Shared Zod schemas
-// ---------------------------------------------------------------------------
-
-const AddressSchema = z.object({
-  firstName: z.string().describe("Recipient/sender first name"),
-  lastName: z.string().describe("Recipient/sender last name"),
-  street1: z.string().describe("Street address line 1"),
-  city: z.string().describe("City"),
-  state: z.string().describe("State/province code (e.g. 'AZ')"),
-  zip: z.string().describe("ZIP/postal code"),
-  street2: z.string().optional().describe("Street address line 2 (apt, suite, etc.)"),
-  company: z.string().optional().describe("Company name"),
-  country: z.string().optional().describe("Country code (default: US)"),
-});
-
-// ---------------------------------------------------------------------------
 // Tool registration
 // ---------------------------------------------------------------------------
 
@@ -553,8 +537,8 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
     "Send a real handwritten note via Handwrytten. This is the primary tool — it places " +
       "an order that results in a physical card being written by a robot with a real pen " +
       "and mailed to the recipient. Use list_cards and list_fonts first to get valid IDs. " +
-      "The recipient can be an inline address object or a saved address ID number. " +
-      "For bulk sends, pass an array of recipients.",
+      "Recipients and senders must be saved address IDs (use add_recipient / add_sender first). " +
+      "For bulk sends, pass an array of recipient IDs.",
     {
       cardId: z.string().describe("Card template ID (from list_cards)"),
       font: z.string().describe("Handwriting font ID or label (from list_fonts)"),
@@ -562,26 +546,14 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
       wishes: z.string().optional().describe("Closing wishes (e.g. 'Best,\\nThe Team')"),
       recipient: z
         .union([
-          AddressSchema,
-          z.number().describe("Saved recipient address ID"),
-          z.array(
-            z.union([
-              AddressSchema.extend({
-                message: z.string().optional().describe("Per-recipient message override"),
-                wishes: z.string().optional().describe("Per-recipient wishes override"),
-              }),
-              z.number().describe("Saved recipient address ID"),
-            ])
-          ),
+          z.number().describe("Saved recipient address ID (from add_recipient or list_recipients)"),
+          z.array(z.number().describe("Saved recipient address ID")),
         ])
-        .describe("Recipient — an address object, saved address ID, or array for bulk"),
+        .describe("Recipient address ID, or array of IDs for bulk sends"),
       sender: z
-        .union([
-          AddressSchema,
-          z.number().describe("Saved sender address ID"),
-        ])
+        .number()
         .optional()
-        .describe("Return address — an address object or saved sender ID"),
+        .describe("Saved sender address ID (from add_sender or list_senders)"),
       denominationId: z
         .number()
         .optional()
@@ -666,33 +638,17 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
 
   server.tool(
     "basket_add_order",
-    "Add an order to the basket (multi-step workflow). Use send_order instead for single-step sends.",
+    "Add an order to the basket (multi-step workflow). Use send_order instead for single-step sends. " +
+      "Recipients and senders must be saved address IDs (use add_recipient / add_sender first).",
     {
       cardId: z.string().describe("Card template ID"),
       font: z.string().optional().describe("Handwriting font ID"),
       message: z.string().optional().describe("The handwritten message"),
       wishes: z.string().optional().describe("Closing wishes"),
-      addresses: z
-        .array(
-          z.object({
-            firstName: z.string(),
-            lastName: z.string(),
-            street1: z.string(),
-            city: z.string(),
-            state: z.string(),
-            zip: z.string(),
-            street2: z.string().optional(),
-            company: z.string().optional(),
-            message: z.string().optional().describe("Per-recipient message override"),
-          })
-        )
-        .optional()
-        .describe("Recipient addresses with optional per-recipient messages"),
       addressIds: z
         .array(z.number())
-        .optional()
-        .describe("Saved recipient address IDs"),
-      returnAddressId: z.number().optional().describe("Saved sender address ID"),
+        .describe("Saved recipient address IDs (from add_recipient or list_recipients)"),
+      returnAddressId: z.number().optional().describe("Saved sender address ID (from add_sender or list_senders)"),
       denominationId: z.number().optional().describe("Gift card denomination ID"),
       insertId: z.number().optional().describe("Insert ID"),
       signatureId: z.number().optional().describe("Signature ID"),

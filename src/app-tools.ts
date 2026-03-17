@@ -64,7 +64,7 @@ export function registerAppTools(
 
   registerAppTool(
     server,
-    "preview_cards",
+    "Preview Cards",
     {
       title: "Browse Cards",
       description:
@@ -311,7 +311,7 @@ export function registerAppTools(
 
   registerAppTool(
     server,
-    "preview_writing",
+    "Preview Writing",
     {
       title: "Preview Writing",
       description:

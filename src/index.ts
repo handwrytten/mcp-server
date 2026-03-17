@@ -405,9 +405,10 @@ async function runHttp(): Promise<void> {
   // -----------------------------------------------------------------------
 
   app.get("/preview/:id", (req: Request, res: Response) => {
-    const entry = previewCache.get(req.params.id);
+    const id = req.params.id as string;
+    const entry = previewCache.get(id);
     if (!entry || entry.expiresAt < Date.now()) {
-      previewCache.delete(req.params.id);
+      previewCache.delete(id);
       res.status(404).send("Preview expired or not found");
       return;
     }

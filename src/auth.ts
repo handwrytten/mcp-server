@@ -42,11 +42,20 @@ export interface OAuthConfig {
   oauthClientSecret: string;
 }
 
+export interface TokenInfo {
+  accessToken: string;
+  refreshToken: string;
+  /** Unix timestamp (ms) when the access token expires */
+  expiresAt: number;
+}
+
+export type OnTokenIssuedCallback = (info: TokenInfo) => void;
+
 // ---------------------------------------------------------------------------
 // Setup
 // ---------------------------------------------------------------------------
 
-export function setupAuthRoutes(app: Express, config: OAuthConfig): void {
+export function setupAuthRoutes(app: Express, config: OAuthConfig, onTokenIssued?: OnTokenIssuedCallback): void {
   const backendOAuthBase = `${config.handwryttenApiUrl}/api/v1/oauth`;
 
   // -----------------------------------------------------------------------
@@ -150,6 +159,16 @@ export function setupAuthRoutes(app: Express, config: OAuthConfig): void {
 
       const data = await response.json();
       console.error("Token response:", response.status, JSON.stringify(data));
+
+      // Notify caller so it can track refresh tokens for proactive renewal
+      if (onTokenIssued && response.ok && data.access_token && data.refresh_token) {
+        onTokenIssued({
+          accessToken: data.access_token,
+          refreshToken: data.refresh_token,
+          expiresAt: Date.now() + (data.expires_in ?? 3600) * 1_000,
+        });
+      }
+
       res.status(response.status).json(data);
     } catch (e: any) {
       console.error("Token proxy error:", e.message);

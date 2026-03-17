@@ -24,7 +24,7 @@ import { Handwrytten } from "handwrytten";
 
 import { registerTools } from "./tools.js";
 import { registerAppTools } from "./app-tools.js";
-import { setupAuthRoutes, extractBearerToken, type OAuthConfig } from "./auth.js";
+import { setupAuthRoutes, extractBearerToken, type OAuthConfig, type TokenInfo } from "./auth.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -36,8 +36,10 @@ const MCP_INSTRUCTIONS =
   "Handwrytten MCP server — send real handwritten notes at scale using robots with real pens. " +
   "Use list_cards and list_fonts first to discover available options, then send_order to mail a note.";
 
-const SESSION_TTL_MS = 30 * 60 * 1_000; // 30 minutes
+const SESSION_TTL_MS = 8 * 60 * 60 * 1_000; // 8 hours
 const CLEANUP_INTERVAL_MS = 5 * 60 * 1_000; // 5 minutes
+/** Refresh the token this many ms before it actually expires. */
+const TOKEN_REFRESH_BUFFER_MS = 2 * 60 * 1_000; // 2 minutes
 
 // ---------------------------------------------------------------------------
 // Helper: create a McpServer with tools registered for a given client
@@ -54,6 +56,26 @@ function createMcpServer(client: Handwrytten, serverUrl?: string): McpServer {
   registerTools(server, client);
   registerAppTools(server, client, serverUrl);
   return server;
+}
+
+// ---------------------------------------------------------------------------
+// Refreshable client — a JS Proxy wrapper so the same object reference can
+// be passed to tool registrations once and the underlying client swapped out
+// transparently when the OAuth token is renewed.
+// ---------------------------------------------------------------------------
+
+function createRefreshableClient(initial: Handwrytten): {
+  proxy: Handwrytten;
+  update: (next: Handwrytten) => void;
+} {
+  let current = initial;
+  const proxy = new Proxy({} as Handwrytten, {
+    get(_target, prop: string | symbol) {
+      const val = (current as unknown as Record<string | symbol, unknown>)[prop];
+      return typeof val === "function" ? (val as Function).bind(current) : val;
+    },
+  });
+  return { proxy, update: (next) => { current = next; } };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -85,6 +107,71 @@ interface SessionEntry {
   server: McpServer;
   transport: StreamableHTTPServerTransport;
   lastActivity: number;
+  /** Swaps out the underlying Handwrytten client after a token refresh. */
+  updateClient?: (next: Handwrytten) => void;
+  /** Handle for the scheduled token-refresh timer so it can be cancelled. */
+  refreshTimer?: ReturnType<typeof setTimeout>;
+}
+
+/**
+ * Short-lived store that maps an access token to its refresh token and expiry.
+ * Populated by the /token proxy endpoint; consumed when a new MCP session is
+ * initialised with that access token.
+ */
+const pendingTokens = new Map<string, TokenInfo>();
+
+/**
+ * Use a stored refresh token to obtain a fresh access token from Handwrytten,
+ * swap the client referenced by the session, and reschedule the next refresh.
+ */
+async function doTokenRefresh(
+  sessionId: string,
+  sessions: Map<string, SessionEntry>,
+  refreshToken: string,
+  config: OAuthConfig
+): Promise<void> {
+  try {
+    const basicAuth = Buffer.from(
+      `${config.oauthClientId}:${config.oauthClientSecret}`
+    ).toString("base64");
+
+    const response = await fetch(
+      `${config.handwryttenApiUrl}/api/v1/oauth/token`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Basic ${basicAuth}`,
+        },
+        body: JSON.stringify({ grant_type: "refresh_token", refresh_token: refreshToken }),
+      }
+    );
+
+    const data = await response.json();
+    if (!response.ok || !data.access_token) {
+      console.error(`Session ${sessionId}: token refresh failed (${response.status}):`, data);
+      return;
+    }
+
+    const session = sessions.get(sessionId);
+    if (!session?.updateClient) return;
+
+    session.updateClient(new Handwrytten({ accessToken: data.access_token }));
+    console.error(`Session ${sessionId}: token refreshed successfully`);
+
+    // Schedule the next refresh
+    const nextRefresh = data.refresh_token ?? refreshToken;
+    const expiresIn = (data.expires_in ?? 3600) * 1_000;
+    const delay = Math.max(expiresIn - TOKEN_REFRESH_BUFFER_MS, 30_000);
+
+    if (session.refreshTimer) clearTimeout(session.refreshTimer);
+    session.refreshTimer = setTimeout(
+      () => doTokenRefresh(sessionId, sessions, nextRefresh, config),
+      delay
+    );
+  } catch (e: any) {
+    console.error(`Session ${sessionId}: token refresh error:`, e.message);
+  }
 }
 
 async function runHttp(): Promise<void> {
@@ -137,7 +224,16 @@ async function runHttp(): Promise<void> {
 
   // OAuth proxy routes (skip in dev mode — no client ID/secret)
   if (OAUTH_CLIENT_ID && OAUTH_CLIENT_SECRET) {
-    setupAuthRoutes(app, oauthConfig);
+    setupAuthRoutes(app, oauthConfig, (info) => {
+      // Store the refresh token keyed by access token so we can set up
+      // proactive renewal when the MCP session is initialised.
+      pendingTokens.set(info.accessToken, info);
+      // Auto-expire the entry after double the token lifetime to avoid leaks.
+      setTimeout(
+        () => pendingTokens.delete(info.accessToken),
+        (info.expiresAt - Date.now()) * 2
+      );
+    });
   } else {
     console.error("Dev mode: OAuth routes disabled (using HANDWRYTTEN_API_KEY)");
   }
@@ -153,6 +249,7 @@ async function runHttp(): Promise<void> {
     const now = Date.now();
     for (const [id, entry] of sessions) {
       if (now - entry.lastActivity > SESSION_TTL_MS) {
+        if (entry.refreshTimer) clearTimeout(entry.refreshTimer);
         entry.transport.close?.();
         sessions.delete(id);
         console.error(`Session ${id} expired and cleaned up`);
@@ -205,22 +302,46 @@ async function runHttp(): Promise<void> {
         return;
       }
 
-      // Create per-session Handwrytten client
-      const client = token
+      // Create per-session Handwrytten client (wrapped in a refreshable proxy
+      // so the underlying token can be swapped without re-registering tools).
+      const initialClient = token
         ? new Handwrytten({ accessToken: token })
         : new Handwrytten(DEV_API_KEY!);
-      const server = createMcpServer(client, MCP_SERVER_URL);
+      const { proxy: clientProxy, update: updateClient } = createRefreshableClient(initialClient);
+      const server = createMcpServer(clientProxy, MCP_SERVER_URL);
+
+      // Look up the refresh token that was captured when /token was called.
+      const tokenInfo = token ? pendingTokens.get(token) : undefined;
+      if (tokenInfo) pendingTokens.delete(token!);
 
       const transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: () => randomUUID(),
         onsessioninitialized: (id) => {
-          sessions.set(id, { server, transport, lastActivity: Date.now() });
+          let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+
+          if (tokenInfo?.refreshToken) {
+            const msUntilRefresh = Math.max(
+              tokenInfo.expiresAt - Date.now() - TOKEN_REFRESH_BUFFER_MS,
+              30_000
+            );
+            refreshTimer = setTimeout(
+              () => doTokenRefresh(id, sessions, tokenInfo.refreshToken, oauthConfig),
+              msUntilRefresh
+            );
+            console.error(
+              `Session ${id}: token refresh scheduled in ${Math.round(msUntilRefresh / 60_000)} min`
+            );
+          }
+
+          sessions.set(id, { server, transport, lastActivity: Date.now(), updateClient, refreshTimer });
           console.error(`Session ${id} initialized`);
         },
       });
 
       transport.onclose = () => {
         if (transport.sessionId) {
+          const entry = sessions.get(transport.sessionId);
+          if (entry?.refreshTimer) clearTimeout(entry.refreshTimer);
           sessions.delete(transport.sessionId);
           console.error(`Session ${transport.sessionId} closed`);
         }
@@ -266,6 +387,7 @@ async function runHttp(): Promise<void> {
     const sessionId = req.headers["mcp-session-id"] as string;
     if (sessionId && sessions.has(sessionId)) {
       const entry = sessions.get(sessionId)!;
+      if (entry.refreshTimer) clearTimeout(entry.refreshTimer);
       entry.transport.close?.();
       sessions.delete(sessionId);
       res.status(200).json({ ok: true });

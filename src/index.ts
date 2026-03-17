@@ -23,7 +23,7 @@ import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import { Handwrytten } from "handwrytten";
 
 import { registerTools } from "./tools.js";
-import { registerAppTools } from "./app-tools.js";
+import { registerAppTools, previewCache } from "./app-tools.js";
 import { setupAuthRoutes, extractBearerToken, type OAuthConfig, type TokenInfo } from "./auth.js";
 
 // ---------------------------------------------------------------------------
@@ -398,6 +398,23 @@ async function runHttp(): Promise<void> {
         id: null,
       });
     }
+  });
+
+  // -----------------------------------------------------------------------
+  // Writing preview images — serves server-rendered PNG previews
+  // -----------------------------------------------------------------------
+
+  app.get("/preview/:id", (req: Request, res: Response) => {
+    const entry = previewCache.get(req.params.id);
+    if (!entry || entry.expiresAt < Date.now()) {
+      previewCache.delete(req.params.id);
+      res.status(404).send("Preview expired or not found");
+      return;
+    }
+    res.set("Content-Type", "image/png");
+    res.set("Cache-Control", "public, max-age=600");
+    res.set("Access-Control-Allow-Origin", "*");
+    res.send(entry.png);
   });
 
   // -----------------------------------------------------------------------

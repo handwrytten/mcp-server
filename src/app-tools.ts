@@ -18,19 +18,38 @@ import type {
 } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import { Handwrytten } from "handwrytten";
+import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import opentype from "opentype.js";
 import { Resvg } from "@resvg/resvg-js";
 import { renderCardToSvgServer } from "./server-postcard-renderer.js";
 
-/** Convert an SVG string to a base64-encoded PNG. */
-function svgToPngBase64(svg: string): string {
+/** Convert an SVG string to a PNG Buffer. */
+function svgToPng(svg: string): Buffer {
   const resvg = new Resvg(svg, {
     fitTo: { mode: "width" as const, value: 800 },
   });
   const pngData = resvg.render();
-  return pngData.asPng().toString("base64");
+  return Buffer.from(pngData.asPng());
+}
+
+// ---------------------------------------------------------------------------
+// In-memory preview image cache — served via /preview/:id in index.ts
+// ---------------------------------------------------------------------------
+
+export const previewCache = new Map<string, { png: Buffer; expiresAt: number }>();
+const PREVIEW_TTL_MS = 10 * 60 * 1_000; // 10 minutes
+
+/** Store a PNG in the cache and return its ID. */
+function cachePreview(png: Buffer): string {
+  const id = crypto.randomUUID();
+  previewCache.set(id, { png, expiresAt: Date.now() + PREVIEW_TTL_MS });
+  // Lazy cleanup of expired entries
+  for (const [key, entry] of previewCache) {
+    if (entry.expiresAt < Date.now()) previewCache.delete(key);
+  }
+  return id;
 }
 
 // Works both from source (.ts) and compiled (dist/.js)
@@ -121,7 +140,7 @@ export function registerAppTools(
         const [categoriesRaw, cardsRaw] = await Promise.all([
           (client as any)._http.get("categories/list") as Promise<any>,
           (client as any)._http.get(
-            `cards/list?with_detailed_images=true&with_images=true&pagination=1&page=1&limit=10` +
+            `cards/list?with_detailed_images=true&with_images=true&pagination=1&page=1&limit=8` +
               (categoryId ? `&where[category_id]=${categoryId}` : "") +
               (query
                 ? `&like[name]=${encodeURIComponent(query)}`
@@ -388,17 +407,19 @@ export function registerAppTools(
                 },
                 font
               );
-              const pngBase64 = svgToPngBase64(svg);
+              const png = svgToPng(svg);
+              const previewId = cachePreview(png);
+              const previewUrl = `${serverUrl}/preview/${previewId}`;
               return {
                 content: [
                   {
                     type: "image" as const,
-                    data: pngBase64,
+                    data: png.toString("base64"),
                     mimeType: "image/png",
                   },
                   {
                     type: "text" as const,
-                    text: `Font: ${selectedFont.label} (${selectedFont.id})`,
+                    text: `Font: ${selectedFont.label} (${selectedFont.id})\nPreview: ${previewUrl}`,
                   },
                 ],
               };

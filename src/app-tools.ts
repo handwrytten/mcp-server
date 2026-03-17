@@ -413,13 +413,8 @@ export function registerAppTools(
               return {
                 content: [
                   {
-                    type: "image" as const,
-                    data: png.toString("base64"),
-                    mimeType: "image/png",
-                  },
-                  {
                     type: "text" as const,
-                    text: `Font: ${selectedFont.label} (${selectedFont.id})\nPreview: ${previewUrl}`,
+                    text: `Font: ${selectedFont.label} (${selectedFont.id})\n\nShow this image to the user:\n![Writing Preview](${previewUrl})`,
                   },
                 ],
               };

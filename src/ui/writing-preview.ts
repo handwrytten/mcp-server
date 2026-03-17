@@ -7,16 +7,14 @@ import "./writing-preview.css";
 
 interface FontInfo {
   id: string | number;
-  name: string;
   label: string;
 }
 
 interface WritingData {
-  svg: string;
+  previewUrl: string;
   renderError?: string;
   selectedFont: FontInfo;
-  fonts: FontInfo[];
-  // Kept for re-rendering on font switch
+  fonts?: FontInfo[];
   message?: string;
   wishes?: string;
   inkColor?: string;
@@ -36,12 +34,11 @@ const fontSelect = document.getElementById("font-select") as HTMLSelectElement;
 // ---------------------------------------------------------------------------
 
 const app = new App(
-  { name: "writing-preview", version: "1.0.0" },
+  { name: "writing-preview", version: "2.0.0" },
   {},
   { autoResize: true },
 );
 
-// Extract JSON from MCP result text (handles wrapped responses)
 function extractJson(text: string): string {
   const trimmed = text.trim();
   if (trimmed.startsWith("{") || trimmed.startsWith("[")) return trimmed;
@@ -55,63 +52,34 @@ function populateFontSelect(fonts: FontInfo[], selectedId: string | number): voi
   for (const f of fonts) {
     const opt = document.createElement("option");
     opt.value = String(f.id);
-    opt.textContent = f.label || f.name;
+    opt.textContent = f.label;
     if (String(f.id) === String(selectedId)) opt.selected = true;
     fontSelect.appendChild(opt);
   }
 }
 
-function renderSvg(svg: string, error?: string): void {
-  if (svg) {
-    previewEl.innerHTML = svg;
-    // Scale SVG to fill full container width, preserving exact card aspect ratio.
-    // The viewBox keeps the coordinate space identical to app.handwrytten.com,
-    // so every character is in exactly the same position — just uniformly scaled up.
-    const svgEl = previewEl.querySelector("svg");
-    if (svgEl) {
-      // Calculate the actual display height based on container width and card aspect ratio
-      const vb = svgEl.getAttribute("viewBox")?.split(" ").map(Number);
-      if (vb && vb.length === 4) {
-        const aspectRatio = vb[3] / vb[2]; // height / width
-        const containerWidth = previewEl.offsetWidth || 800;
-        const displayHeight = Math.ceil(containerWidth * aspectRatio);
-        svgEl.setAttribute("width", "100%");
-        svgEl.setAttribute("height", String(displayHeight));
-        svgEl.setAttribute("preserveAspectRatio", "xMinYMin meet");
-        svgEl.style.display = "block";
-      }
-    }
-    previewEl.style.width = "100%";
-    previewEl.style.maxWidth = "none";
-    // Force a spacer after the card to push iframe height
-    let spacer = document.getElementById("height-spacer");
-    if (!spacer) {
-      spacer = document.createElement("div");
-      spacer.id = "height-spacer";
-      document.body.appendChild(spacer);
-    }
-    spacer.style.height = "1px";
-    spacer.style.width = "1px";
+function renderPreview(data: WritingData): void {
+  if (data.previewUrl) {
+    previewEl.innerHTML = `<img src="${data.previewUrl}" alt="Writing Preview" style="width:100%; display:block; border-radius:4px;" />`;
+  } else if (data.renderError) {
+    previewEl.innerHTML = `<div class="loading">Error: ${data.renderError}</div>`;
   } else {
-    previewEl.innerHTML = `<div class="loading">${error || "No preview available"}</div>`;
+    previewEl.innerHTML = `<div class="loading">No preview available</div>`;
   }
 }
 
-// Initial tool result from preview_writing
+// Initial tool result from Preview-Writing
 app.ontoolresult = async (result) => {
   try {
-    console.log("[writing-preview] Raw result content types:", result.content?.map((c: any) => c.type));
-    const textContent = result.content?.find((c) => c.type === "text");
+    const textContent = result.content?.find((c: any) => c.type === "text");
     const rawText = textContent && "text" in textContent ? textContent.text : null;
-    console.log("[writing-preview] Raw text (first 500):", rawText?.substring(0, 500));
-    const text = rawText || "{}";
-    const data: WritingData = JSON.parse(extractJson(text));
-    console.log("[writing-preview] Parsed data keys:", Object.keys(data));
-    console.log("[writing-preview] svg length:", data.svg?.length, "fonts count:", data.fonts?.length, "renderError:", data.renderError);
+    const data: WritingData = JSON.parse(extractJson(rawText || "{}"));
     state = data;
 
-    populateFontSelect(data.fonts || [], data.selectedFont?.id);
-    renderSvg(data.svg, data.renderError);
+    if (data.fonts) {
+      populateFontSelect(data.fonts, data.selectedFont?.id);
+    }
+    renderPreview(data);
   } catch (e: any) {
     previewEl.innerHTML = `<div class="loading">Error: ${e.message}</div>`;
   }
@@ -124,9 +92,9 @@ fontSelect.addEventListener("change", async () => {
   const fontId = fontSelect.value;
 
   try {
-    previewEl.innerHTML = `<div class="loading">Loading font…</div>`;
+    previewEl.innerHTML = `<div class="loading">Rendering…</div>`;
     const result = await app.callServerTool({
-      name: "get_writing_data",
+      name: "preview_writing",
       arguments: {
         fontId,
         message: state.message || "",
@@ -137,17 +105,21 @@ fontSelect.addEventListener("change", async () => {
 
     const textContent = result.content?.find((c: any) => c.type === "text");
     const text = textContent && "text" in textContent ? textContent.text : "{}";
-    const data = JSON.parse(extractJson(text));
+    const data: WritingData = JSON.parse(extractJson(text));
 
-    state.selectedFont = data.selectedFont;
-    state.svg = data.svg;
-    renderSvg(data.svg);
+    // Keep fonts list from original state
+    data.fonts = state.fonts;
+    data.message = state.message;
+    data.wishes = state.wishes;
+    data.inkColor = state.inkColor;
+    state = data;
+
+    renderPreview(data);
   } catch (e: any) {
     previewEl.innerHTML = `<div class="loading">Error: ${e.message}</div>`;
   }
 });
 
-// Handle theme changes
 app.onhostcontextchanged = (ctx) => {
   if (ctx.theme === "dark") {
     document.documentElement.style.setProperty("--bg", "#1e1e1e");

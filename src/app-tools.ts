@@ -301,33 +301,54 @@ export function registerAppTools(
   );
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // WRITING PREVIEW (returns PNG image inline — no app/iframe needed)
+  // WRITING PREVIEW APP (server-rendered PNG displayed in MCP App iframe)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  server.tool(
-    "preview_writing",
-    "Preview how a handwritten message will look on a card. Returns a PNG image " +
-      "rendered server-side in the chosen handwriting font. Use list_fonts to see available fonts.",
+  const writingPreviewUri = "ui://handwrytten/writing-preview.html";
+
+  registerAppTool(
+    server,
+    "Preview-Writing",
     {
-      message: z.string().describe("The message text to preview"),
-      fontId: z
-        .string()
-        .optional()
-        .describe("Font ID or label (from list_fonts). Defaults to first available font."),
-      cardId: z
-        .string()
-        .optional()
-        .describe("Card ID to use for dimensions. Uses default card size if omitted."),
-      wishes: z
-        .string()
-        .optional()
-        .describe("Optional closing text (e.g. 'Best,\\nThe Team')"),
-      inkColor: z
-        .string()
-        .optional()
-        .describe("Ink color as hex (default: #0040ac)"),
+      title: "Preview Writing",
+      description:
+        "Preview how a handwritten message will look on a card with the selected font. " +
+        "Renders a PNG image server-side and displays it inline.",
+      inputSchema: {
+        message: z.string().describe("The message text to preview"),
+        fontId: z
+          .string()
+          .optional()
+          .describe("Font ID or label (from list_fonts). Defaults to first available font."),
+        cardId: z
+          .string()
+          .optional()
+          .describe("Card ID to use for dimensions. Uses default card size if omitted."),
+        wishes: z
+          .string()
+          .optional()
+          .describe("Optional closing text (e.g. 'Best,\\nThe Team')"),
+        inkColor: z
+          .string()
+          .optional()
+          .describe("Ink color as hex (default: #0040ac)"),
+      },
+      _meta: {
+        ui: {
+          resourceUri: writingPreviewUri,
+          csp: {
+            "img-src": [
+              "https://*.handwrytten.com",
+              "https://*.trycloudflare.com",
+              "https:",
+              "http:",
+              "data:",
+            ],
+          },
+        },
+      },
     },
-    async ({ message, fontId, cardId, wishes, inkColor }) => {
+    async ({ message, fontId, cardId, wishes, inkColor }): Promise<CallToolResult> => {
       try {
         const [fontsRaw, cardData] = await Promise.all([
           client.fonts.list(),
@@ -344,7 +365,6 @@ export function registerAppTools(
           line_spacing: f.raw?.line_spacing,
         }));
 
-        // Find the selected font
         let selectedFont = fonts[0];
         if (fontId) {
           const match = fonts.find(
@@ -356,7 +376,6 @@ export function registerAppTools(
           if (match) selectedFont = match;
         }
 
-        // Card dimensions (from card data or defaults)
         const card = {
           width: cardData?.raw?.closed_width
             ? parseFloat(cardData.raw.closed_width) * 96
@@ -380,8 +399,9 @@ export function registerAppTools(
           ],
         };
 
-        // Fetch font file and render SVG → PNG server-side
         let renderError = "";
+        let previewUrl = "";
+
         if (selectedFont.mainFontUrl) {
           try {
             const fontRes = await fetch(selectedFont.mainFontUrl);
@@ -409,15 +429,7 @@ export function registerAppTools(
               );
               const png = svgToPng(svg);
               const previewId = cachePreview(png);
-              const previewUrl = `${serverUrl}/preview/${previewId}`;
-              return {
-                content: [
-                  {
-                    type: "text" as const,
-                    text: `Font: ${selectedFont.label} (${selectedFont.id})\n\nShow this image to the user:\n![Writing Preview](${previewUrl})`,
-                  },
-                ],
-              };
+              previewUrl = `${serverUrl}/preview/${previewId}`;
             } else {
               renderError = `Font fetch failed: HTTP ${fontRes.status}`;
             }
@@ -430,8 +442,131 @@ export function registerAppTools(
         }
 
         return {
-          content: [{ type: "text" as const, text: `Error: ${renderError}` }],
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                previewUrl,
+                renderError,
+                selectedFont: { id: selectedFont.id, label: selectedFont.label },
+                message,
+                wishes: wishes || "",
+                inkColor: inkColor || "#0040ac",
+              }),
+            },
+          ],
+        };
+      } catch (e: any) {
+        return {
+          content: [{ type: "text", text: `Error: ${e.message}` }],
           isError: true,
+        };
+      }
+    }
+  );
+
+  // Tool for the writing preview app to re-render with a different font
+  server.tool(
+    "preview_writing",
+    "Re-render writing preview with a different font. Returns a PNG preview URL.",
+    {
+      fontId: z.string().describe("Font ID or label"),
+      message: z.string().describe("Message text to render"),
+      wishes: z.string().optional().describe("Wishes/closing text"),
+      inkColor: z.string().optional().describe("Ink color hex"),
+      cardId: z.string().optional().describe("Card ID for dimensions"),
+    },
+    async ({ fontId, message, wishes, inkColor, cardId }) => {
+      try {
+        const [fontsRaw, cardData] = await Promise.all([
+          client.fonts.list(),
+          cardId
+            ? (client.cards.get(cardId) as Promise<any>)
+            : Promise.resolve(null),
+        ]);
+
+        const fonts = fontsRaw.map((f: any) => ({
+          id: f.id,
+          name: f.raw?.name || f.name,
+          label: f.label || f.name,
+          mainFontUrl: f.raw?.path || f.raw?.font_file,
+          line_spacing: f.raw?.line_spacing,
+        }));
+
+        let selectedFont = fonts[0];
+        const match = fonts.find(
+          (f: any) =>
+            String(f.id) === String(fontId) ||
+            f.label?.toLowerCase() === fontId.toLowerCase() ||
+            f.name?.toLowerCase() === fontId.toLowerCase()
+        );
+        if (match) selectedFont = match;
+
+        const card = {
+          width: cardData?.raw?.closed_width
+            ? parseFloat(cardData.raw.closed_width) * 96
+            : 672,
+          height: cardData?.raw?.closed_height
+            ? parseFloat(cardData.raw.closed_height) * 96
+            : 480,
+          padding: [
+            cardData?.raw?.preview_margin_top
+              ? parseFloat(cardData.raw.preview_margin_top) * 96
+              : 28.8,
+            cardData?.raw?.preview_margin_right
+              ? parseFloat(cardData.raw.preview_margin_right) * 96
+              : 28.8,
+            cardData?.raw?.preview_margin_bottom
+              ? parseFloat(cardData.raw.preview_margin_bottom) * 96
+              : 28.8,
+            cardData?.raw?.preview_margin_left
+              ? parseFloat(cardData.raw.preview_margin_left) * 96
+              : 28.8,
+          ],
+        };
+
+        let previewUrl = "";
+        let renderError = "";
+
+        if (selectedFont.mainFontUrl) {
+          try {
+            const fontRes = await fetch(selectedFont.mainFontUrl);
+            if (fontRes.ok) {
+              const fontBuffer = Buffer.from(await fontRes.arrayBuffer());
+              const font = opentype.parse(fontBuffer.buffer.slice(
+                fontBuffer.byteOffset,
+                fontBuffer.byteOffset + fontBuffer.byteLength
+              ));
+              const svg = renderCardToSvgServer(
+                {
+                  card: {
+                    width: card.width,
+                    height: card.height,
+                    padding: card.padding as [number, number, number, number],
+                  },
+                  message: { text: message, lineHeight: selectedFont.line_spacing ?? undefined },
+                  wishes: wishes ? { text: wishes } : undefined,
+                  inkColor: inkColor || "#0040ac",
+                },
+                font
+              );
+              const png = svgToPng(svg);
+              previewUrl = `${serverUrl}/preview/${cachePreview(png)}`;
+            }
+          } catch (fontErr: any) {
+            renderError = fontErr.message;
+          }
+        }
+
+        return {
+          content: [{
+            type: "text" as const,
+            text: JSON.stringify({
+              previewUrl,
+              renderError,
+              selectedFont: { id: selectedFont.id, label: selectedFont.label },
+            }),
+          }],
         };
       } catch (e: any) {
         return {
@@ -439,6 +574,25 @@ export function registerAppTools(
           isError: true,
         };
       }
+    }
+  );
+
+  // Writing preview resource — serves the Vite-built HTML
+  registerAppResource(
+    server,
+    writingPreviewUri,
+    writingPreviewUri,
+    { mimeType: RESOURCE_MIME_TYPE },
+    async (): Promise<ReadResourceResult> => {
+      const html = await fs.readFile(
+        path.join(DIST_DIR, "writing-preview.html"),
+        "utf-8"
+      );
+      return {
+        contents: [
+          { uri: writingPreviewUri, mimeType: RESOURCE_MIME_TYPE, text: html },
+        ],
+      };
     }
   );
 }

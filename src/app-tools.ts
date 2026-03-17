@@ -66,7 +66,6 @@ export function registerAppTools(
   serverUrl?: string
 ): void {
   const cardPreviewUri = "ui://handwrytten/card-preview.html";
-  const writingPreviewUri = "ui://handwrytten/writing-preview.html";
 
   // ═══════════════════════════════════════════════════════════════════════════
   // CARD PREVIEW APP
@@ -262,39 +261,6 @@ export function registerAppTools(
     }
   );
 
-  // Tool for the writing preview app to fetch font files (bypasses sandbox CSP)
-  server.tool(
-    "get_font_file",
-    "Fetch a font file and return it as base64. Used by the writing preview app.",
-    {
-      url: z.string().describe("Font file URL to fetch"),
-    },
-    async ({ url }) => {
-      try {
-        console.log("[get_font_file] Fetching:", url);
-        const res = await fetch(url);
-        console.log("[get_font_file] Status:", res.status, "Content-Type:", res.headers.get("content-type"));
-        if (!res.ok) {
-          return {
-            content: [{ type: "text" as const, text: `HTTP ${res.status}` }],
-            isError: true,
-          };
-        }
-
-        const buffer = Buffer.from(await res.arrayBuffer());
-        console.log("[get_font_file] Font size:", buffer.length, "bytes, base64 length:", buffer.toString("base64").length);
-        return {
-          content: [{ type: "text" as const, text: JSON.stringify({ base64: buffer.toString("base64") }) }],
-        };
-      } catch (e: any) {
-        console.error("[get_font_file] Error:", e.message);
-        return {
-          content: [{ type: "text" as const, text: e.message }],
-          isError: true,
-        };
-      }
-    }
-  );
 
   // Card preview resource
   registerAppResource(
@@ -316,58 +282,34 @@ export function registerAppTools(
   );
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // WRITING PREVIEW APP
+  // WRITING PREVIEW (returns PNG image inline — no app/iframe needed)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  registerAppTool(
-    server,
-    "Preview-Writing",
+  server.tool(
+    "preview_writing",
+    "Preview how a handwritten message will look on a card. Returns a PNG image " +
+      "rendered server-side in the chosen handwriting font. Use list_fonts to see available fonts.",
     {
-      title: "Preview Writing",
-      description:
-        "Preview how a handwritten message will look on a card with the selected font. " +
-        "Shows a live rendering of the text in the chosen handwriting style.",
-      inputSchema: {
-        message: z.string().describe("The message text to preview"),
-        fontId: z
-          .string()
-          .optional()
-          .describe("Font ID or label (from list_fonts). Defaults to first available font."),
-        cardId: z
-          .string()
-          .optional()
-          .describe("Card ID to use for dimensions. Uses default card size if omitted."),
-        wishes: z
-          .string()
-          .optional()
-          .describe("Optional closing text (e.g. 'Best,\\nThe Team')"),
-        inkColor: z
-          .string()
-          .optional()
-          .describe("Ink color as hex (default: #0040ac)"),
-      },
-      _meta: {
-        ui: {
-          resourceUri: writingPreviewUri,
-          csp: {
-            "font-src": [
-              "https://*.handwrytten.com",
-              "https://*.amazonaws.com",
-              "https://handwrytten.com",
-              "data:",
-            ],
-            "connect-src": [
-              "https://*.handwrytten.com",
-              "https://*.amazonaws.com",
-              "https://handwrytten.com",
-            ],
-          },
-        },
-      },
+      message: z.string().describe("The message text to preview"),
+      fontId: z
+        .string()
+        .optional()
+        .describe("Font ID or label (from list_fonts). Defaults to first available font."),
+      cardId: z
+        .string()
+        .optional()
+        .describe("Card ID to use for dimensions. Uses default card size if omitted."),
+      wishes: z
+        .string()
+        .optional()
+        .describe("Optional closing text (e.g. 'Best,\\nThe Team')"),
+      inkColor: z
+        .string()
+        .optional()
+        .describe("Ink color as hex (default: #0040ac)"),
     },
-    async ({ message, fontId, cardId, wishes, inkColor }): Promise<CallToolResult> => {
+    async ({ message, fontId, cardId, wishes, inkColor }) => {
       try {
-        // Fetch fonts and optionally card details
         const [fontsRaw, cardData] = await Promise.all([
           client.fonts.list(),
           cardId
@@ -379,7 +321,6 @@ export function registerAppTools(
           id: f.id,
           name: f.raw?.name || f.name,
           label: f.label || f.name,
-          previewUrl: f.previewUrl,
           mainFontUrl: f.raw?.path || f.raw?.font_file,
           line_spacing: f.raw?.line_spacing,
         }));
@@ -420,23 +361,18 @@ export function registerAppTools(
           ],
         };
 
-        // Fetch font file and render SVG server-side
-        let svg = "";
+        // Fetch font file and render SVG → PNG server-side
         let renderError = "";
-        console.log("[preview_writing] Font URL:", selectedFont.mainFontUrl);
         if (selectedFont.mainFontUrl) {
           try {
             const fontRes = await fetch(selectedFont.mainFontUrl);
-            console.log("[preview_writing] Font fetch status:", fontRes.status);
             if (fontRes.ok) {
               const fontBuffer = Buffer.from(await fontRes.arrayBuffer());
-              console.log("[preview_writing] Font buffer size:", fontBuffer.length);
               const font = opentype.parse(fontBuffer.buffer.slice(
                 fontBuffer.byteOffset,
                 fontBuffer.byteOffset + fontBuffer.byteLength
               ));
-              console.log("[preview_writing] Font parsed, glyphs:", font.glyphs.length);
-              svg = renderCardToSvgServer(
+              const svg = renderCardToSvgServer(
                 {
                   card: {
                     width: card.width,
@@ -452,202 +388,41 @@ export function registerAppTools(
                 },
                 font
               );
-              console.log("[preview_writing] SVG rendered, length:", svg.length);
+              const pngBase64 = svgToPngBase64(svg);
+              return {
+                content: [
+                  {
+                    type: "image" as const,
+                    data: pngBase64,
+                    mimeType: "image/png",
+                  },
+                  {
+                    type: "text" as const,
+                    text: `Font: ${selectedFont.label} (${selectedFont.id})`,
+                  },
+                ],
+              };
             } else {
               renderError = `Font fetch failed: HTTP ${fontRes.status}`;
             }
           } catch (fontErr: any) {
             renderError = fontErr.message;
-            console.error("[preview_writing] Font render error:", fontErr.message, fontErr.stack);
+            console.error("[preview_writing] Error:", fontErr.message);
           }
         } else {
-          renderError = "No font URL found";
+          renderError = "No font URL found for selected font";
         }
 
-        // Strip fonts to minimum (keep response small for MCP context limit)
-        const fontsMinimal = fonts.map((f: any) => ({ id: f.id, label: f.label }));
-
-        // Build response: PNG image if SVG was rendered, plus metadata as text
-        const content: CallToolResult["content"] = [];
-
-        if (svg) {
-          try {
-            const pngBase64 = svgToPngBase64(svg);
-            content.push({
-              type: "image" as const,
-              data: pngBase64,
-              mimeType: "image/png",
-            });
-          } catch (pngErr: any) {
-            renderError = renderError || `PNG conversion failed: ${pngErr.message}`;
-          }
-        }
-
-        content.push({
-          type: "text",
-          text: JSON.stringify({
-            renderError,
-            selectedFont: { id: selectedFont.id, label: selectedFont.label },
-            fonts: fontsMinimal,
-            message,
-            wishes: wishes || "",
-            inkColor: inkColor || "#0040ac",
-          }),
-        });
-
-        return { content };
-      } catch (e: any) {
         return {
-          content: [{ type: "text", text: `Error: ${e.message}` }],
+          content: [{ type: "text" as const, text: `Error: ${renderError}` }],
           isError: true,
         };
-      }
-    }
-  );
-
-  // Tool for writing preview app to re-render with a different font
-  server.tool(
-    "get_writing_data",
-    "Re-render writing preview with a different font. Used by the writing preview app.",
-    {
-      fontId: z.string().describe("Font ID or label"),
-      message: z.string().describe("Message text to render"),
-      wishes: z.string().optional().describe("Wishes/closing text"),
-      inkColor: z.string().optional().describe("Ink color hex"),
-      cardId: z.string().optional().describe("Card ID for dimensions"),
-    },
-    async ({ fontId, message, wishes, inkColor, cardId }) => {
-      try {
-        const [fontsRaw, cardData] = await Promise.all([
-          client.fonts.list(),
-          cardId
-            ? (client.cards.get(cardId) as Promise<any>)
-            : Promise.resolve(null),
-        ]);
-
-        const fonts = fontsRaw.map((f: any) => ({
-          id: f.id,
-          name: f.raw?.name || f.name,
-          label: f.label || f.name,
-          mainFontUrl: f.raw?.path || f.raw?.font_file,
-          line_spacing: f.raw?.line_spacing,
-        }));
-
-        let selectedFont = fonts[0];
-        const match = fonts.find(
-          (f: any) =>
-            String(f.id) === String(fontId) ||
-            f.label?.toLowerCase() === fontId.toLowerCase() ||
-            f.name?.toLowerCase() === fontId.toLowerCase()
-        );
-        if (match) selectedFont = match;
-
-        const card = {
-          width: cardData?.raw?.closed_width
-            ? parseFloat(cardData.raw.closed_width) * 96
-            : 672,
-          height: cardData?.raw?.closed_height
-            ? parseFloat(cardData.raw.closed_height) * 96
-            : 480,
-          padding: [
-            cardData?.raw?.preview_margin_top
-              ? parseFloat(cardData.raw.preview_margin_top) * 96
-              : 28.8,
-            cardData?.raw?.preview_margin_right
-              ? parseFloat(cardData.raw.preview_margin_right) * 96
-              : 28.8,
-            cardData?.raw?.preview_margin_bottom
-              ? parseFloat(cardData.raw.preview_margin_bottom) * 96
-              : 28.8,
-            cardData?.raw?.preview_margin_left
-              ? parseFloat(cardData.raw.preview_margin_left) * 96
-              : 28.8,
-          ],
-        };
-
-        // Render SVG server-side
-        let svg = "";
-        if (selectedFont.mainFontUrl) {
-          try {
-            const fontRes = await fetch(selectedFont.mainFontUrl);
-            if (fontRes.ok) {
-              const fontBuffer = Buffer.from(await fontRes.arrayBuffer());
-              const font = opentype.parse(fontBuffer.buffer.slice(
-                fontBuffer.byteOffset,
-                fontBuffer.byteOffset + fontBuffer.byteLength
-              ));
-              svg = renderCardToSvgServer(
-                {
-                  card: {
-                    width: card.width,
-                    height: card.height,
-                    padding: card.padding as [number, number, number, number],
-                  },
-                  message: {
-                    text: message,
-                    lineHeight: selectedFont.line_spacing ?? undefined,
-                  },
-                  wishes: wishes ? { text: wishes } : undefined,
-                  inkColor: inkColor || "#0040ac",
-                },
-                font
-              );
-            }
-          } catch (fontErr: any) {
-            console.error("[get_writing_data] Font render error:", fontErr.message);
-          }
-        }
-
-        const content: CallToolResult["content"] = [];
-
-        if (svg) {
-          try {
-            const pngBase64 = svgToPngBase64(svg);
-            content.push({
-              type: "image" as const,
-              data: pngBase64,
-              mimeType: "image/png",
-            });
-          } catch (pngErr: any) {
-            console.error("[get_writing_data] PNG conversion error:", pngErr.message);
-          }
-        }
-
-        content.push({
-          type: "text" as const,
-          text: JSON.stringify({ selectedFont: { id: selectedFont.id, label: selectedFont.label } }),
-        });
-
-        return { content };
       } catch (e: any) {
         return {
           content: [{ type: "text" as const, text: `Error: ${e.message}` }],
           isError: true,
         };
       }
-    }
-  );
-
-  // Writing preview resource
-  registerAppResource(
-    server,
-    writingPreviewUri,
-    writingPreviewUri,
-    { mimeType: RESOURCE_MIME_TYPE },
-    async (): Promise<ReadResourceResult> => {
-      const html = await fs.readFile(
-        path.join(DIST_DIR, "writing-preview.html"),
-        "utf-8"
-      );
-      return {
-        contents: [
-          {
-            uri: writingPreviewUri,
-            mimeType: RESOURCE_MIME_TYPE,
-            text: html,
-          },
-        ],
-      };
     }
   );
 }

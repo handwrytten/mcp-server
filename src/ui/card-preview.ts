@@ -131,7 +131,10 @@ async function fetchImageWithFallback(
 async function loadFrontImage(card: Card, el: HTMLElement): Promise<void> {
   const frontDataUri = await fetchImageWithFallback(card.detailed_images?.front, card.cover);
   const img = el.querySelector(".front-face img") as HTMLImageElement;
-  if (img && frontDataUri) img.src = frontDataUri;
+  if (img && frontDataUri) {
+    img.src = frontDataUri;
+    img.classList.add("loaded");
+  }
 }
 
 async function loadSecondaryImages(card: Card, el: HTMLElement): Promise<void> {
@@ -179,6 +182,7 @@ function createCardElement(card: Card): HTMLElement {
       <div class="postcard__side ${orientationClass} front">
         <div class="front-face">
           <img alt="${escapeHtml(card.name)}" />
+          <div class="image-spinner"></div>
         </div>
         <div class="inside-face"></div>
         <div class="back-face"></div>

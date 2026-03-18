@@ -283,6 +283,46 @@ body {
   background: #d55a1c;
 }
 
+/* --- Image Loading Spinner --- */
+
+.front-face {
+  min-height: 120px;
+}
+
+.front-face img {
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.front-face img.loaded {
+  opacity: 1;
+}
+
+.image-spinner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 36px;
+  height: 36px;
+  border: 3px solid transparent;
+  border-top: 3px solid #ee6723;
+  border-right: 3px solid #ee6723;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  z-index: 2;
+}
+
+.front-face img.loaded ~ .image-spinner {
+  display: none;
+}
+
+@keyframes spin {
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
 /* --- Loading --- */
 
 .loading {

@@ -82,6 +82,7 @@ const checkoutSection = document.getElementById("checkout-section")!;
 const actionsEl = document.getElementById("actions")!;
 const refreshBtn = document.getElementById("refresh-btn")!;
 const clearBtn = document.getElementById("clear-btn")!;
+const sendBtn = document.getElementById("send-btn") as HTMLButtonElement;
 
 // Checkout fields
 const checkoutSubtotal = document.getElementById("checkout-subtotal")!;
@@ -408,6 +409,23 @@ clearBtn.addEventListener("click", async () => {
   } finally {
     clearBtn.textContent = "Clear Basket";
     clearBtn.disabled = false;
+  }
+});
+
+sendBtn.addEventListener("click", async () => {
+  if (!confirm("This will charge your account and mail all orders in the basket. Are you sure?")) return;
+  sendBtn.textContent = "SENDING...";
+  sendBtn.disabled = true;
+  try {
+    await app.callServerTool({
+      name: "basket_send",
+      arguments: {},
+    });
+    loadBasket();
+  } catch (e) {
+    console.error("Send failed:", e);
+    sendBtn.textContent = "SEND!";
+    sendBtn.disabled = false;
   }
 });
 

@@ -232,20 +232,30 @@ function createCardElement(card: Card): HTMLElement {
     // For folded cards, animate inside the inside-face; for flat cards, inside the back-face
     const targetSelector = isFlat ? ".back-face .write-message-anim" : ".inside-face .write-message-anim";
     const container = el.querySelector(targetSelector) as HTMLElement;
-    if (!container) return;
+    if (!container) {
+      console.error("[write-anim] container not found:", targetSelector);
+      return;
+    }
 
     if (!lottieAnim || lottieContainer !== container) {
       // Destroy previous instance if targeting a different container
       if (lottieAnim) { lottieAnim.destroy(); lottieAnim = null; }
       lottieContainer = container;
       container.innerHTML = "";
-      lottieAnim = lottie.loadAnimation({
-        container,
-        renderer: "svg",
-        loop: false,
-        autoplay: true,
-        animationData: writeMessageAnimationData,
-      });
+      try {
+        console.log("[write-anim] loading lottie, container size:", container.offsetWidth, "x", container.offsetHeight);
+        console.log("[write-anim] lottie module:", typeof lottie, typeof lottie?.loadAnimation);
+        lottieAnim = lottie.loadAnimation({
+          container,
+          renderer: "svg",
+          loop: false,
+          autoplay: true,
+          animationData: writeMessageAnimationData,
+        });
+        console.log("[write-anim] animation loaded:", !!lottieAnim);
+      } catch (e) {
+        console.error("[write-anim] lottie error:", e);
+      }
     } else {
       // Replay from start
       lottieAnim.goToAndPlay(0);

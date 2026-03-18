@@ -385,6 +385,21 @@ body {
   color: #e74c3c;
 }
 
+.btn-send {
+  background: #ee6723;
+  color: #fff;
+  margin-left: auto;
+}
+
+.btn-send:hover {
+  background: #d55a1c;
+}
+
+.btn-send:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
 /* --- States --- */
 
 .loading {

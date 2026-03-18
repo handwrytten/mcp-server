@@ -179,11 +179,19 @@ body {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  transform-style: flat;
+  transform-style: flat !important;
   width: 50%;
   height: 50%;
   pointer-events: none;
   z-index: 2;
+}
+
+/* Override the .scene-3d * { transform-style: preserve-3d } rule
+   so that Lottie SVG elements render correctly in the 3D scene. */
+.write-message-anim,
+.write-message-anim * {
+  transform-style: flat !important;
+  backface-visibility: visible !important;
 }
 
 .write-message-anim svg {

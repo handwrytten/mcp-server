@@ -11,7 +11,7 @@ interface FontInfo {
 }
 
 interface WritingData {
-  previewUrl: string;
+  pngBase64: string;
   renderError?: string;
   selectedFont: FontInfo;
   fonts?: FontInfo[];
@@ -59,8 +59,8 @@ function populateFontSelect(fonts: FontInfo[], selectedId: string | number): voi
 }
 
 function renderPreview(data: WritingData): void {
-  if (data.previewUrl) {
-    previewEl.innerHTML = `<img src="${data.previewUrl}" alt="Writing Preview" style="width:100%; display:block; border-radius:4px;" />`;
+  if (data.pngBase64) {
+    previewEl.innerHTML = `<img src="data:image/png;base64,${data.pngBase64}" alt="Writing Preview" style="width:100%; display:block; border-radius:4px;" />`;
   } else if (data.renderError) {
     previewEl.innerHTML = `<div class="loading">Error: ${data.renderError}</div>`;
   } else {

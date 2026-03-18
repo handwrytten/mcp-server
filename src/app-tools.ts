@@ -400,7 +400,8 @@ export function registerAppTools(
         };
 
         let renderError = "";
-        let previewUrl = "";
+        let pngBase64 = "";
+        const fontsMinimal = fonts.map((f: any) => ({ id: f.id, label: f.label }));
 
         if (selectedFont.mainFontUrl) {
           try {
@@ -428,8 +429,7 @@ export function registerAppTools(
                 font
               );
               const png = svgToPng(svg);
-              const previewId = cachePreview(png);
-              previewUrl = `${serverUrl}/preview/${previewId}`;
+              pngBase64 = png.toString("base64");
             } else {
               renderError = `Font fetch failed: HTTP ${fontRes.status}`;
             }
@@ -446,9 +446,10 @@ export function registerAppTools(
             {
               type: "text",
               text: JSON.stringify({
-                previewUrl,
+                pngBase64,
                 renderError,
                 selectedFont: { id: selectedFont.id, label: selectedFont.label },
+                fonts: fontsMinimal,
                 message,
                 wishes: wishes || "",
                 inkColor: inkColor || "#0040ac",
@@ -525,7 +526,7 @@ export function registerAppTools(
           ],
         };
 
-        let previewUrl = "";
+        let pngBase64 = "";
         let renderError = "";
 
         if (selectedFont.mainFontUrl) {
@@ -550,8 +551,7 @@ export function registerAppTools(
                 },
                 font
               );
-              const png = svgToPng(svg);
-              previewUrl = `${serverUrl}/preview/${cachePreview(png)}`;
+              pngBase64 = svgToPng(svg).toString("base64");
             }
           } catch (fontErr: any) {
             renderError = fontErr.message;
@@ -562,7 +562,7 @@ export function registerAppTools(
           content: [{
             type: "text" as const,
             text: JSON.stringify({
-              previewUrl,
+              pngBase64,
               renderError,
               selectedFont: { id: selectedFont.id, label: selectedFont.label },
             }),

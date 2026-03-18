@@ -14,21 +14,16 @@ Once connected, your AI assistant can:
 - **Include gift cards and inserts** — attach gift cards or marketing inserts to orders
 - **Manage QR codes** — create and attach QR codes to custom cards
 - **Track orders** — check order status, view history, get tracking info
-- **Prospect** — calculate mailing targets by ZIP code and radius
 
 ## Quick Start
 
-### 1. Get an API Key
+### Option A: Remote Server (OAuth — recommended)
 
-Sign up at [handwrytten.com](https://www.handwrytten.com) and get your API key from the [API settings page](https://www.handwrytten.com/api/).
+The Handwrytten MCP server supports OAuth 2.0 authentication. Connect directly from Claude.ai, Claude Desktop, or Claude Code — no API key needed. You'll sign in with your Handwrytten account when prompted.
 
-### 2. Install
+#### Claude.ai
 
-```bash
-npm install -g @handwrytten/mcp-server
-```
-
-### 3. Configure Your AI Client
+Add Handwrytten from the MCP integrations menu — no installation required.
 
 #### Claude Desktop
 
@@ -38,10 +33,7 @@ Add to your `claude_desktop_config.json`:
 {
   "mcpServers": {
     "handwrytten": {
-      "command": "handwrytten-mcp",
-      "env": {
-        "HANDWRYTTEN_API_KEY": "your_api_key_here"
-      }
+      "url": "https://mcp.handwrytten.com/mcp"
     }
   }
 }
@@ -54,12 +46,22 @@ Config file locations:
 #### Claude Code
 
 ```bash
-claude mcp add handwrytten -- env HANDWRYTTEN_API_KEY=your_api_key_here handwrytten-mcp
+claude mcp add handwrytten --transport http https://mcp.handwrytten.com/mcp
 ```
 
-#### Cursor
+### Option B: Local Server (API Key)
 
-Add to your Cursor MCP settings:
+For development or self-hosted setups, you can run the server locally with an API key.
+
+1. Sign up at [handwrytten.com](https://www.handwrytten.com) and get your API key from the [API settings page](https://www.handwrytten.com/api/).
+
+2. Install and configure:
+
+```bash
+npm install -g @handwrytten/mcp-server
+```
+
+#### Claude Desktop (local)
 
 ```json
 {
@@ -74,7 +76,13 @@ Add to your Cursor MCP settings:
 }
 ```
 
-### 4. Start Using It
+#### Claude Code (local)
+
+```bash
+claude mcp add handwrytten -- env HANDWRYTTEN_API_KEY=your_api_key_here handwrytten-mcp
+```
+
+### Start Using It
 
 Just ask your AI assistant naturally:
 
@@ -159,13 +167,12 @@ Just ask your AI assistant naturally:
 | `basket_clear` | Clear the basket |
 | `list_past_baskets` | List previously submitted baskets |
 
-### Account & Prospecting
+### Account
 
 | Tool | Description |
 |------|-------------|
 | `get_user` | Get account profile and credits balance |
 | `list_signatures` | List saved handwriting signatures |
-| `calculate_targets` | Prospect by ZIP code and radius |
 
 ## Example Conversations
 
@@ -190,16 +197,30 @@ npm install
 npm run build
 ```
 
-Test locally:
+Test locally in stdio mode (API key auth):
 
 ```bash
 HANDWRYTTEN_API_KEY=your_key node dist/index.js
+```
+
+Run the HTTP server with OAuth (requires OAuth client credentials):
+
+```bash
+MCP_SERVER_URL=http://localhost:3000 \
+OAUTH_CLIENT_ID=your_client_id \
+OAUTH_CLIENT_SECRET=your_client_secret \
+node dist/index.js
 ```
 
 ## Built On
 
 - [Handwrytten TypeScript SDK](https://www.npmjs.com/package/handwrytten) — the official SDK this server wraps
 - [Model Context Protocol SDK](https://www.npmjs.com/package/@modelcontextprotocol/sdk) — the MCP framework
+
+## Privacy & Support
+
+- **Privacy Policy**: [handwrytten.com/privacy-policy](https://www.handwrytten.com/privacy-policy)
+- **Support**: [handwrytten.com/contact](https://www.handwrytten.com/contact) or email dev@handwrytten.com
 
 ## License
 

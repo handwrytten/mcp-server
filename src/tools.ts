@@ -42,7 +42,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
     "get_user",
     "[READ-ONLY] Get the authenticated user's Handwrytten profile. Returns: id, name, email, credits balance, test_mode flag, subscription status.",
     {},
-    { readOnlyHint: true, destructiveHint: false },
+    { title: "Get User Profile", readOnlyHint: true, destructiveHint: false },
     async () => {
       try {
         const user = await client.auth.getUser();
@@ -57,7 +57,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
     "list_signatures",
     "[READ-ONLY] List the user's saved handwriting signature images. Returns array of {id, name, preview_url}. Use the id as signatureId when placing orders via send_order or basket_add_order.",
     {},
-    { readOnlyHint: true, destructiveHint: false },
+    { title: "List Signatures", readOnlyHint: true, destructiveHint: false },
     async () => {
       try {
         const sigs = await client.auth.listSignatures();
@@ -104,7 +104,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
         .optional()
         .describe("Search card names (case-insensitive partial match)"),
     },
-    { readOnlyHint: true, destructiveHint: false },
+    { title: "Browse Cards", readOnlyHint: true, destructiveHint: false },
     async ({ categoryId, category, page, perPage, query }) => {
       try {
         // Fetch all cards and categories in parallel
@@ -180,7 +180,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
     "get_card",
     "[READ-ONLY] Get full details of a specific card template. Returns: id, name, cover image, orientation (P=portrait, L=landscape, F=flat), dimensions, pricing, detailed_images (front/inside/back).",
     { cardId: z.string().describe("Card template ID (numeric string, from list_cards results)") },
-    { readOnlyHint: true, destructiveHint: false },
+    { title: "Get Card Details", readOnlyHint: true, destructiveHint: false },
     async ({ cardId }) => {
       try {
         const card = await client.cards.get(cardId);
@@ -195,7 +195,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
     "list_card_categories",
     "[READ-ONLY] List all card categories (e.g. 'Thank You', 'Birthday', 'Holiday', 'My Custom Cards'). Returns array of {id, name, slug}. Pass the returned id as categoryId to list_cards to filter.",
     {},
-    { readOnlyHint: true, destructiveHint: false },
+    { title: "List Card Categories", readOnlyHint: true, destructiveHint: false },
     async () => {
       try {
         const data = await (client as any)._http.get("categories/list") as any;
@@ -219,7 +219,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
     "list_fonts",
     "[READ-ONLY] List available handwriting font styles for the message body of orders. Returns array of {id, name, label, previewUrl}. Pass the id or label as the 'font' parameter to send_order or basket_add_order. These are robot-handwritten fonts, not printed fonts.",
     {},
-    { readOnlyHint: true, destructiveHint: false },
+    { title: "List Handwriting Fonts", readOnlyHint: true, destructiveHint: false },
     async () => {
       try {
         const fonts = await client.fonts.list();
@@ -234,7 +234,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
     "list_customizer_fonts",
     "[READ-ONLY] List printed/typeset fonts for custom card text zones (header, footer, main, back). Returns array of {id, name, label}. These are DIFFERENT from handwriting fonts — use these only with create_custom_card zone parameters (headerFontId, mainFontId, footerFontId, backFontId).",
     {},
-    { readOnlyHint: true, destructiveHint: false },
+    { title: "List Custom Card Fonts", readOnlyHint: true, destructiveHint: false },
     async () => {
       try {
         const fonts = await client.fonts.listForCustomizer();
@@ -253,7 +253,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
     "list_gift_cards",
     "[READ-ONLY] List available physical gift card products and their price denominations. Returns array of {id, name, denominations: [{id, price}]}. Pass a denomination id as denominationId to send_order or basket_add_order to include a gift card in the envelope.",
     {},
-    { readOnlyHint: true, destructiveHint: false },
+    { title: "List Gift Cards", readOnlyHint: true, destructiveHint: false },
     async () => {
       try {
         const gcs = await client.giftCards.list();
@@ -277,7 +277,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
         .optional()
         .describe("If true, also return discontinued inserts"),
     },
-    { readOnlyHint: true, destructiveHint: false },
+    { title: "List Card Inserts", readOnlyHint: true, destructiveHint: false },
     async ({ includeHistorical }) => {
       try {
         const inserts = await client.inserts.list({ includeHistorical });
@@ -296,7 +296,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
     "list_qr_codes",
     "[READ-ONLY] List QR codes created on this account. Returns array of {id, name, url, scan_count}. QR codes can be placed on custom cards via create_custom_card.",
     {},
-    { readOnlyHint: true, destructiveHint: false },
+    { title: "List QR Codes", readOnlyHint: true, destructiveHint: false },
     async () => {
       try {
         const qrs = await client.qrCodes.list();
@@ -316,7 +316,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
       iconId: z.number().optional().describe("Optional icon ID"),
       webhookUrl: z.string().optional().describe("Webhook URL to receive POST notifications when the QR code is scanned"),
     },
-    { destructiveHint: false },
+    { title: "Create QR Code", destructiveHint: true, readOnlyHint: false },
     async (params) => {
       try {
         const qr = await client.qrCodes.create(params);
@@ -331,7 +331,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
     "delete_qr_code",
     "[DESTRUCTIVE — permanently deletes QR code] Permanently delete a QR code. This cannot be undone. Any custom cards using this QR code will no longer display it.",
     { qrCodeId: z.number().describe("ID of the QR code to delete") },
-    { destructiveHint: true },
+    { title: "Delete QR Code", destructiveHint: true, readOnlyHint: false },
     async ({ qrCodeId }) => {
       try {
         const result = await client.qrCodes.delete(qrCodeId);
@@ -346,7 +346,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
     "list_qr_code_frames",
     "[READ-ONLY] List decorative border frames available for QR codes on custom cards. Returns array of {id, name, preview_url}. Pass the id as qrCodeFrameId to create_custom_card.",
     {},
-    { readOnlyHint: true, destructiveHint: false },
+    { title: "List QR Code Frames", readOnlyHint: true, destructiveHint: false },
     async () => {
       try {
         const frames = await client.qrCodes.frames();
@@ -365,7 +365,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
     "list_recipients",
     "[READ-ONLY] List saved recipient (TO) addresses from the address book. Returns array of {id, firstName, lastName, street1, city, state, zip, company, birthday, anniversary}. Pass the id as 'recipient' to send_order or in the addressIds array to basket_add_order.",
     {},
-    { readOnlyHint: true, destructiveHint: false },
+    { title: "List Recipients", readOnlyHint: true, destructiveHint: false },
     async () => {
       try {
         const recipients = await client.addressBook.listRecipients();
@@ -392,7 +392,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
       birthday: z.string().optional().describe("Recipient's birthday in YYYY-MM-DD format (for automated birthday cards)"),
       anniversary: z.string().optional().describe("Recipient's anniversary in YYYY-MM-DD format (for automated anniversary cards)"),
     },
-    { destructiveHint: false },
+    { title: "Add Recipient Address", destructiveHint: true, readOnlyHint: false },
     async (params) => {
       try {
         const id = await client.addressBook.addRecipient(params);
@@ -420,7 +420,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
       birthday: z.string().optional().describe("Birthday (YYYY-MM-DD)"),
       anniversary: z.string().optional().describe("Anniversary (YYYY-MM-DD)"),
     },
-    { destructiveHint: false },
+    { title: "Update Recipient Address", destructiveHint: true, readOnlyHint: false },
     async (params) => {
       try {
         const id = await client.addressBook.updateRecipient(params);
@@ -441,7 +441,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
         .optional()
         .describe("Array of address IDs for batch delete"),
     },
-    { destructiveHint: true },
+    { title: "Delete Recipient Address", destructiveHint: true, readOnlyHint: false },
     async (params) => {
       try {
         const result = await client.addressBook.deleteRecipient(params);
@@ -456,7 +456,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
     "list_senders",
     "[READ-ONLY] List saved sender (FROM / return) addresses from the address book. Returns array of {id, firstName, lastName, street1, city, state, zip, company, isDefault}. Pass the id as 'sender' to send_order or as returnAddressId to basket_add_order.",
     {},
-    { readOnlyHint: true, destructiveHint: false },
+    { title: "List Sender Addresses", readOnlyHint: true, destructiveHint: false },
     async () => {
       try {
         const senders = await client.addressBook.listSenders();
@@ -482,7 +482,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
       countryId: z.string().optional().describe("Country code"),
       default: z.boolean().optional().describe("If true, this becomes the default return address used when no sender is specified"),
     },
-    { destructiveHint: false },
+    { title: "Add Sender Address", destructiveHint: true, readOnlyHint: false },
     async (params) => {
       try {
         const id = await client.addressBook.addSender(params);
@@ -503,7 +503,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
         .optional()
         .describe("Array of address IDs for batch delete"),
     },
-    { destructiveHint: true },
+    { title: "Delete Sender Address", destructiveHint: true, readOnlyHint: false },
     async (params) => {
       try {
         const result = await client.addressBook.deleteSender(params);
@@ -518,7 +518,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
     "list_countries",
     "[READ-ONLY] List all countries Handwrytten can mail to. Returns array of {id, code, name}. Use the code as countryId when adding addresses.",
     {},
-    { readOnlyHint: true, destructiveHint: false },
+    { title: "List Countries", readOnlyHint: true, destructiveHint: false },
     async () => {
       try {
         const countries = await client.addressBook.countries();
@@ -538,7 +538,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
         .optional()
         .describe("Two-letter country code (default: 'US'). Use list_countries to see valid codes."),
     },
-    { readOnlyHint: true, destructiveHint: false },
+    { title: "List States", readOnlyHint: true, destructiveHint: false },
     async ({ countryCode }) => {
       try {
         const states = await client.addressBook.states(countryCode);
@@ -597,7 +597,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
         .optional()
         .describe("Your own reference string for tracking this order in your systems (not printed on the card)."),
     },
-    { destructiveHint: true },
+    { title: "Send Handwritten Card", destructiveHint: true, readOnlyHint: false },
     async (params) => {
       try {
         const result = await client.orders.send(params as any);
@@ -612,7 +612,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
     "get_order",
     "[READ-ONLY] Get full details of a specific order including status, tracking info, card details, message, addresses, and pricing. Returns: id, status, tracking_link, card, message, address_from, address_to, price_structure, date_send, date_complete.",
     { orderId: z.string().describe("The order ID (numeric string, from send_order response or list_orders results)") },
-    { readOnlyHint: true, destructiveHint: false },
+    { title: "Get Order Details", readOnlyHint: true, destructiveHint: false },
     async ({ orderId }) => {
       try {
         const order = await client.orders.get(orderId);
@@ -630,7 +630,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
       page: z.number().optional().describe("Page number, starting from 1 (default: 1)"),
       perPage: z.number().optional().describe("Number of orders per page (default: 20)"),
     },
-    { readOnlyHint: true, destructiveHint: false },
+    { title: "List Orders", readOnlyHint: true, destructiveHint: false },
     async (params) => {
       try {
         const orders = await client.orders.list(params);
@@ -647,7 +647,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
     {
       page: z.number().optional().describe("Page number"),
     },
-    { readOnlyHint: true, destructiveHint: false },
+    { title: "List Past Baskets", readOnlyHint: true, destructiveHint: false },
     async (params) => {
       try {
         const baskets = await client.orders.listPastBaskets(params);
@@ -681,7 +681,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
       dateSend: z.string().optional().describe("Schedule send date in YYYY-MM-DD format. Omit to send when basket is submitted."),
       clientMetadata: z.string().optional().describe("Your own reference/tracking string (not printed on card)."),
     },
-    { destructiveHint: false },
+    { title: "Add to Basket", destructiveHint: true, readOnlyHint: false },
     async (params) => {
       try {
         const result = await client.basket.addOrder(params as any);
@@ -699,7 +699,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
       couponCode: z.string().optional().describe("Coupon/promo code to apply for a discount (validated server-side)."),
       testMode: z.boolean().optional().describe("If true, orders are validated but NOT actually sent or charged. Use for testing."),
     },
-    { destructiveHint: true },
+    { title: "Submit Basket", destructiveHint: true, readOnlyHint: false },
     async (params) => {
       try {
         const result = await client.basket.send(params);
@@ -714,7 +714,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
     "basket_list",
     "[READ-ONLY] List all orders currently in the basket (not yet submitted). Returns array of basket items with card, message, addresses, pricing. Use View-Basket app tool for a richer visual display.",
     {},
-    { readOnlyHint: true, destructiveHint: false },
+    { title: "List Basket Items", readOnlyHint: true, destructiveHint: false },
     async () => {
       try {
         const items = await client.basket.list();
@@ -729,7 +729,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
     "basket_count",
     "[READ-ONLY] Get the count of orders currently in the basket. Returns {count: number}. Quick check without fetching full item details.",
     {},
-    { readOnlyHint: true, destructiveHint: false },
+    { title: "Get Basket Count", readOnlyHint: true, destructiveHint: false },
     async () => {
       try {
         const count = await client.basket.count();
@@ -744,7 +744,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
     "basket_remove",
     "[DESTRUCTIVE — removes order from basket] Remove a single order from the basket. The order is discarded and not recoverable. Confirm with the user before calling.",
     { basketId: z.number().describe("Basket item ID to remove (from basket_list results)") },
-    { destructiveHint: true },
+    { title: "Remove from Basket", destructiveHint: true, readOnlyHint: false },
     async ({ basketId }) => {
       try {
         const result = await client.basket.remove(basketId);
@@ -759,7 +759,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
     "basket_clear",
     "[DESTRUCTIVE — removes ALL orders from basket] Permanently removes every order from the basket. None of the orders will be sent. Always confirm with the user before calling — this cannot be undone.",
     {},
-    { destructiveHint: true },
+    { title: "Clear Basket", destructiveHint: true, readOnlyHint: false },
     async () => {
       try {
         const result = await client.basket.clear();
@@ -787,7 +787,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
         .optional()
         .describe("Filter by orientation: 'portrait' or 'landscape'"),
     },
-    { readOnlyHint: true, destructiveHint: false },
+    { title: "List Card Dimensions", readOnlyHint: true, destructiveHint: false },
     async (params) => {
       try {
         const dims = await client.customCards.dimensions(params);
@@ -807,7 +807,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
         .enum(["cover", "logo"])
         .describe("'cover' for full-bleed front/back, 'logo' for writing-side logo"),
     },
-    { destructiveHint: false },
+    { title: "Upload Custom Image", destructiveHint: true, readOnlyHint: false },
     async (params) => {
       try {
         const img = await client.customCards.uploadImage(params);
@@ -825,7 +825,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
       imageId: z.number().describe("Image ID to check"),
       cardId: z.number().optional().describe("Optional card ID for dimension-specific checks"),
     },
-    { readOnlyHint: true, destructiveHint: false },
+    { title: "Check Image Quality", readOnlyHint: true, destructiveHint: false },
     async ({ imageId, cardId }) => {
       try {
         const result = await client.customCards.checkImage(imageId, cardId);
@@ -845,7 +845,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
         .optional()
         .describe("Filter by image type"),
     },
-    { readOnlyHint: true, destructiveHint: false },
+    { title: "List Custom Images", readOnlyHint: true, destructiveHint: false },
     async ({ imageType }) => {
       try {
         const images = await client.customCards.listImages(imageType);
@@ -860,7 +860,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
     "delete_custom_image",
     "[DESTRUCTIVE — permanently deletes uploaded image] Permanently delete an uploaded custom image. Any custom card designs still referencing this image may display incorrectly. This cannot be undone.",
     { imageId: z.number().describe("Image ID to delete") },
-    { destructiveHint: true },
+    { title: "Delete Custom Image", destructiveHint: true, readOnlyHint: false },
     async ({ imageId }) => {
       try {
         const result = await client.customCards.deleteImage(imageId);
@@ -966,7 +966,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
       qrCodeAlign: z.string().optional().describe("QR code alignment (left, center, right)"),
       qrCodeFrameId: z.number().optional().describe("QR code frame ID"),
     },
-    { destructiveHint: false },
+    { title: "Create Custom Card", destructiveHint: true, readOnlyHint: false },
     async (params) => {
       try {
         const card = await client.customCards.create(params as any);
@@ -981,7 +981,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
     "get_custom_card",
     "[READ-ONLY] Get full details of a custom card design including dimensions, cover images, text zones, logos, and QR code placement. Returns all configuration needed to understand or duplicate the design.",
     { cardId: z.number().describe("Custom card ID") },
-    { readOnlyHint: true, destructiveHint: false },
+    { title: "Get Custom Card Details", readOnlyHint: true, destructiveHint: false },
     async ({ cardId }) => {
       try {
         const card = await client.customCards.get(cardId);
@@ -996,7 +996,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
     "delete_custom_card",
     "[DESTRUCTIVE — permanently deletes custom card design] Permanently delete a custom card design. Orders already placed with this card are unaffected, but new orders cannot use it. This cannot be undone.",
     { cardId: z.number().describe("Custom card ID to delete") },
-    { destructiveHint: true },
+    { title: "Delete Custom Card", destructiveHint: true, readOnlyHint: false },
     async ({ cardId }) => {
       try {
         const result = await client.customCards.delete(cardId);
@@ -1008,27 +1008,27 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
   );
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // PROSPECTING
+  // PROSPECTING (disabled — not useful in MCP context)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  server.tool(
-    "calculate_targets",
-    "[READ-ONLY] Estimate the number of prospecting targets (businesses/residents) in a geographic area. Returns target counts by category and estimated mailing costs. Use this to preview before creating a prospecting campaign.",
-    {
-      zipCode: z.string().describe("Center ZIP code for the search area (US only, e.g. '90210')"),
-      radiusMiles: z
-        .number()
-        .optional()
-        .describe("Search radius in miles from the center ZIP code (e.g. 5, 10, 25)"),
-    },
-    { readOnlyHint: true, destructiveHint: false },
-    async (params) => {
-      try {
-        const result = await client.prospecting.calculateTargets(params);
-        return ok(result);
-      } catch (e: any) {
-        return err(e.message);
-      }
-    }
-  );
+  // server.tool(
+  //   "calculate_targets",
+  //   "[READ-ONLY] Estimate the number of prospecting targets (businesses/residents) in a geographic area. Returns target counts by category and estimated mailing costs. Use this to preview before creating a prospecting campaign.",
+  //   {
+  //     zipCode: z.string().describe("Center ZIP code for the search area (US only, e.g. '90210')"),
+  //     radiusMiles: z
+  //       .number()
+  //       .optional()
+  //       .describe("Search radius in miles from the center ZIP code (e.g. 5, 10, 25)"),
+  //   },
+  //   { title: "Calculate Prospecting Targets", readOnlyHint: true, destructiveHint: false },
+  //   async (params) => {
+  //     try {
+  //       const result = await client.prospecting.calculateTargets(params);
+  //       return ok(result);
+  //     } catch (e: any) {
+  //       return err(e.message);
+  //     }
+  //   }
+  // );
 }

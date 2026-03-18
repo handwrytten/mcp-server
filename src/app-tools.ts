@@ -190,7 +190,7 @@ export function registerAppTools(
       perPage: z.number().optional().describe("Cards per page, 1-50 (default: 20)"),
       query: z.string().optional().describe("Search cards by name (case-insensitive partial match)"),
     },
-    { readOnlyHint: true, destructiveHint: false },
+    { title: "Fetch Card Data", readOnlyHint: true, destructiveHint: false },
     async ({ categoryId, page, perPage, query }) => {
       try {
         const pg = Math.max(1, page ?? 1);
@@ -240,7 +240,7 @@ export function registerAppTools(
     {
       url: z.string().describe("Full HTTPS URL of the image on cdn.handwrytten.com or d3e924qpzqov0g.cloudfront.net"),
     },
-    { readOnlyHint: true, destructiveHint: false },
+    { title: "Fetch Card Image", readOnlyHint: true, destructiveHint: false },
     async ({ url }) => {
       try {
         // Only allow fetching from known CDN domains
@@ -477,7 +477,7 @@ export function registerAppTools(
       inkColor: z.string().optional().describe("Ink color as hex string (e.g. '#0040ac' for blue, '#000000' for black)"),
       cardId: z.string().optional().describe("Card template ID for accurate dimensions. Omit to use default card size."),
     },
-    { readOnlyHint: true, destructiveHint: false },
+    { title: "Render Writing Preview", readOnlyHint: true, destructiveHint: false },
     async ({ fontId, message, wishes, inkColor, cardId }) => {
       try {
         const [fontsRaw, cardData] = await Promise.all([
@@ -703,7 +703,7 @@ export function registerAppTools(
     "get_basket_summary",
     "[READ-ONLY] Fetch current basket items with card details, addresses, pricing, and checkout totals. Used internally by the basket summary app — not intended for direct use. Returns {items, count, checkout}.",
     {},
-    { readOnlyHint: true, destructiveHint: false },
+    { title: "Fetch Basket Summary", readOnlyHint: true, destructiveHint: false },
     async () => {
       try {
         const [itemsRaw, countRaw] = await Promise.all([
@@ -776,7 +776,7 @@ export function registerAppTools(
     {
       basketId: z.number().describe("Basket item ID to remove (from get_basket_summary results)"),
     },
-    { destructiveHint: true },
+    { title: "Remove Basket Item", destructiveHint: true, readOnlyHint: false },
     async ({ basketId }) => {
       try {
         const result = await client.basket.remove(basketId);
@@ -797,7 +797,7 @@ export function registerAppTools(
     "basket_clear_all",
     "[DESTRUCTIVE — removes ALL orders from basket] Always confirm with the user before calling. Permanently removes every order from the basket. None will be sent. Used by the basket summary app.",
     {},
-    { destructiveHint: true },
+    { title: "Clear All Basket Items", destructiveHint: true, readOnlyHint: false },
     async () => {
       try {
         const result = await client.basket.clear();

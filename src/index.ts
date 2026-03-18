@@ -212,7 +212,7 @@ async function runHttp(): Promise<void> {
   // CORS — needed for browser-based MCP clients (e.g. MCP Inspector)
   app.use((_req, res, next) => {
     res.set("Access-Control-Allow-Origin", "*");
-    res.set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
+    res.set("Access-Control-Allow-Methods", "GET, HEAD, POST, DELETE, OPTIONS");
     res.set("Access-Control-Allow-Headers", "Content-Type, Authorization, Mcp-Session-Id");
     res.set("Access-Control-Expose-Headers", "Mcp-Session-Id, WWW-Authenticate");
     if (_req.method === "OPTIONS") {
@@ -256,6 +256,16 @@ async function runHttp(): Promise<void> {
       }
     }
   }, CLEANUP_INTERVAL_MS);
+
+  // -----------------------------------------------------------------------
+  // HEAD /mcp — allow clients to probe the endpoint without a token
+  // Required by the MCP Directory submission guide.
+  // -----------------------------------------------------------------------
+
+  app.head("/mcp", (_req: Request, res: Response) => {
+    res.set("Content-Type", "application/json");
+    res.status(200).end();
+  });
 
   // -----------------------------------------------------------------------
   // POST /mcp — handle MCP requests

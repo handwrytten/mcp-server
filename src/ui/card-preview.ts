@@ -128,23 +128,34 @@ async function fetchImageWithFallback(
   return "";
 }
 
-async function loadCardImages(card: Card, el: HTMLElement): Promise<void> {
-  // Load front image first (most visible)
+async function loadFrontImage(card: Card, el: HTMLElement): Promise<void> {
   const frontDataUri = await fetchImageWithFallback(card.detailed_images?.front, card.cover);
   const img = el.querySelector(".front-face img") as HTMLImageElement;
   if (img && frontDataUri) img.src = frontDataUri;
+}
 
-  // Load inside and back images in parallel (secondary)
+async function loadSecondaryImages(card: Card, el: HTMLElement): Promise<void> {
+  const insideFace = el.querySelector(".inside-face") as HTMLElement;
+  const backFace = el.querySelector(".back-face") as HTMLElement;
+  if (insideFace?.dataset.loaded && backFace?.dataset.loaded) return;
+
   const [insideDataUri, backDataUri] = await Promise.all([
-    fetchImageWithFallback(card.detailed_images?.inside),
-    fetchImageWithFallback(card.detailed_images?.back),
+    insideFace && !insideFace.dataset.loaded
+      ? fetchImageWithFallback(card.detailed_images?.inside)
+      : Promise.resolve(""),
+    backFace && !backFace.dataset.loaded
+      ? fetchImageWithFallback(card.detailed_images?.back)
+      : Promise.resolve(""),
   ]);
 
-  const insideFace = el.querySelector(".inside-face") as HTMLElement;
-  if (insideFace && insideDataUri) insideFace.style.backgroundImage = `url('${insideDataUri}')`;
-
-  const backFace = el.querySelector(".back-face") as HTMLElement;
-  if (backFace && backDataUri) backFace.style.backgroundImage = `url('${backDataUri}')`;
+  if (insideFace && insideDataUri) {
+    insideFace.style.backgroundImage = `url('${insideDataUri}')`;
+    insideFace.dataset.loaded = "1";
+  }
+  if (backFace && backDataUri) {
+    backFace.style.backgroundImage = `url('${backDataUri}')`;
+    backFace.dataset.loaded = "1";
+  }
 }
 
 function createCardElement(card: Card): HTMLElement {
@@ -183,10 +194,7 @@ function createCardElement(card: Card): HTMLElement {
     </div>
   `;
 
-  // Load images via MCP tool calls (base64 data URIs)
-  loadCardImages(card, el);
-
-  // Get references
+  // Front image is loaded via the queue; inside/back load lazily on hover
   const scene = el.querySelector(".scene-3d") as HTMLElement;
   const postcardSide = el.querySelector(".postcard__side") as HTMLElement;
   const tabs = el.querySelectorAll(".card__preview li");
@@ -208,8 +216,9 @@ function createCardElement(card: Card): HTMLElement {
     });
   }
 
-  // Hover events
+  // Hover events — also triggers lazy load of inside/back images
   scene.addEventListener("mouseenter", () => {
+    loadSecondaryImages(card, el);
     if (currentView === "front") {
       setView(isFlat ? "back" : "inside");
     }
@@ -223,6 +232,7 @@ function createCardElement(card: Card): HTMLElement {
   tabs.forEach((tab) => {
     tab.addEventListener("click", (e) => {
       e.stopPropagation();
+      loadSecondaryImages(card, el);
       const view = (tab as HTMLElement).dataset.view as View;
       setView(view);
     });
@@ -240,17 +250,17 @@ function createCardElement(card: Card): HTMLElement {
   return el;
 }
 
-// Queue for loading images — limits concurrent MCP tool calls
+// Queue for loading front images — limits concurrent MCP tool calls
 const imageLoadQueue: Array<{ card: Card; el: HTMLElement }> = [];
 let imageLoadRunning = 0;
-const MAX_CONCURRENT_LOADS = 2;
+const MAX_CONCURRENT_LOADS = 1;
 
 async function processImageQueue() {
   while (imageLoadQueue.length > 0 && imageLoadRunning < MAX_CONCURRENT_LOADS) {
     const item = imageLoadQueue.shift();
     if (!item) break;
     imageLoadRunning++;
-    loadCardImages(item.card, item.el).finally(() => {
+    loadFrontImage(item.card, item.el).finally(() => {
       imageLoadRunning--;
       processImageQueue();
     });
@@ -271,7 +281,7 @@ function renderCards(cards: Card[], append = false) {
   processImageQueue();
 
   loadingEl.classList.add("hidden");
-  loadMoreBtn.style.display = cards.length >= 20 ? "block" : "none";
+  loadMoreBtn.style.display = cards.length >= 4 ? "block" : "none";
 }
 
 function populateCategories(cats: Category[]) {

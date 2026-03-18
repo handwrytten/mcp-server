@@ -141,8 +141,7 @@ async function loadFrontImage(card: Card, el: HTMLElement): Promise<void> {
     img.src = frontDataUri;
     img.classList.add("loaded");
   }
-  // Pre-load inside images right after front so they're ready before hover
-  if (!card.detailed_images?.inside && card.orientation === "F") return;
+  // Pre-load secondary images right after front so they're ready before hover
   loadSecondaryImages(card, el);
 }
 

@@ -129,7 +129,11 @@ async function fetchImageWithFallback(
 }
 
 async function loadFrontImage(card: Card, el: HTMLElement): Promise<void> {
-  const frontDataUri = await fetchImageWithFallback(card.detailed_images?.front, card.cover);
+  // Use card.cover for the front face (matches webapp behavior).
+  // detailed_images.front is a different image for folded cards.
+  const frontDataUri = await fetchImageViaMcp(
+    pickImageUrl(undefined, card.cover)
+  );
   const img = el.querySelector(".front-face img") as HTMLImageElement;
   if (img && frontDataUri) {
     img.src = frontDataUri;

@@ -7,6 +7,8 @@
 
 import { App } from "@modelcontextprotocol/ext-apps";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import lottie from "lottie-web/build/player/lottie_light";
+import writeMessageAnimationData from "./write-message-animation.json";
 import "./card-preview.css";
 
 // ---------------------------------------------------------------------------
@@ -203,8 +205,8 @@ function createCardElement(card: Card): HTMLElement {
         ${!isFlat ? `<div class="front-face inner-mask">
           <div style="transform: ${mirrorTransform}"></div>
         </div>` : ""}
-        <div class="inside-face"></div>
-        <div class="back-face"></div>
+        <div class="inside-face"><div class="write-message-anim"></div></div>
+        <div class="back-face">${isFlat ? '<div class="write-message-anim"></div>' : ""}</div>
       </div>
     </div>
     <div class="card-footer">
@@ -222,6 +224,40 @@ function createCardElement(card: Card): HTMLElement {
   const postcardSide = el.querySelector(".postcard__side") as HTMLElement;
   const tabs = el.querySelectorAll(".card__preview li");
 
+  // Lottie animation instance — created lazily on first flip
+  let lottieAnim: ReturnType<typeof lottie.loadAnimation> | null = null;
+  let lottieContainer: HTMLElement | null = null;
+
+  function playWriteAnimation() {
+    // For folded cards, animate inside the inside-face; for flat cards, inside the back-face
+    const targetSelector = isFlat ? ".back-face .write-message-anim" : ".inside-face .write-message-anim";
+    const container = el.querySelector(targetSelector) as HTMLElement;
+    if (!container) return;
+
+    if (!lottieAnim || lottieContainer !== container) {
+      // Destroy previous instance if targeting a different container
+      if (lottieAnim) { lottieAnim.destroy(); lottieAnim = null; }
+      lottieContainer = container;
+      container.innerHTML = "";
+      lottieAnim = lottie.loadAnimation({
+        container,
+        renderer: "svg",
+        loop: false,
+        autoplay: true,
+        animationData: writeMessageAnimationData,
+      });
+    } else {
+      // Replay from start
+      lottieAnim.goToAndPlay(0);
+    }
+  }
+
+  function stopWriteAnimation() {
+    if (lottieAnim) {
+      lottieAnim.goToAndStop(0);
+    }
+  }
+
   let currentView: View = "front";
 
   function setView(view: View) {
@@ -237,6 +273,14 @@ function createCardElement(card: Card): HTMLElement {
       const tabView = (tab as HTMLElement).dataset.view;
       tab.classList.toggle("active", tabView === view);
     });
+
+    // Play or stop the handwriting animation
+    const shouldAnimate = isFlat ? view === "back" : view === "inside";
+    if (shouldAnimate) {
+      playWriteAnimation();
+    } else {
+      stopWriteAnimation();
+    }
   }
 
   // Hover events — also triggers lazy load of inside/back images
@@ -343,7 +387,7 @@ async function fetchCards(
       arguments: {
         ...(categoryId != null ? { categoryId } : {}),
         page,
-        perPage: 20,
+        perPage: 10,
         ...(query ? { query } : {}),
       },
     });

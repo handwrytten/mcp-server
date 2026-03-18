@@ -139,7 +139,7 @@ export function registerAppTools(
         const [categoriesRaw, cardsRaw] = await Promise.all([
           (client as any)._http.get("categories/list") as Promise<any>,
           (client as any)._http.get(
-            `cards/list?with_detailed_images=true&with_images=true&pagination=1&page=1&limit=8` +
+            `cards/list?with_detailed_images=true&with_images=true&pagination=1&page=1&limit=10` +
               (categoryId ? `&where[category_id]=${categoryId}` : "") +
               (query
                 ? `&like[name]=${encodeURIComponent(query)}`
@@ -194,7 +194,7 @@ export function registerAppTools(
     async ({ categoryId, page, perPage, query }) => {
       try {
         const pg = Math.max(1, page ?? 1);
-        const pp = Math.min(50, Math.max(1, perPage ?? 20));
+        const pp = Math.min(50, Math.max(1, perPage ?? 10));
 
         const data = (await (client as any)._http.get(
           `cards/list?with_detailed_images=true&with_images=true&pagination=1` +

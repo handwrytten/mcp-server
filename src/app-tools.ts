@@ -96,8 +96,7 @@ export function registerAppTools(
     {
       title: "Browse Cards",
       description:
-        "Browse and preview card templates interactively with 3D flip animation " +
-        "showing front, inside, and back views. Shows card name and price.",
+        "[READ-ONLY] Open an interactive card browser with 3D flip animation. Browse card templates showing front, inside, and back views with card name and price. Click 'Select' to choose a card for ordering. No data is modified.",
       inputSchema: {
         categoryId: z
           .number()
@@ -184,13 +183,14 @@ export function registerAppTools(
   // Tool for the card preview app to fetch more cards
   server.tool(
     "get_cards_detailed",
-    "Fetch cards with detailed images (front/inside/back). Used by the card preview app.",
+    "[READ-ONLY] Fetch paginated cards with front/inside/back image URLs. Used internally by the card preview app — not intended for direct use. Returns {cards, page, perPage}.",
     {
-      categoryId: z.number().optional().describe("Category ID filter"),
-      page: z.number().optional().describe("Page number (default: 1)"),
-      perPage: z.number().optional().describe("Results per page (default: 20)"),
-      query: z.string().optional().describe("Search card names"),
+      categoryId: z.number().optional().describe("Filter to a single category ID (from list_card_categories)"),
+      page: z.number().optional().describe("Page number, starting from 1 (default: 1)"),
+      perPage: z.number().optional().describe("Cards per page, 1-50 (default: 20)"),
+      query: z.string().optional().describe("Search cards by name (case-insensitive partial match)"),
     },
+    { readOnlyHint: true, destructiveHint: false },
     async ({ categoryId, page, perPage, query }) => {
       try {
         const pg = Math.max(1, page ?? 1);
@@ -236,10 +236,11 @@ export function registerAppTools(
   // Tool for the card preview app to fetch images (bypasses sandbox CSP)
   server.tool(
     "get_card_image",
-    "Fetch a card image and return it as an MCP image content block. Used by the card preview app.",
+    "[READ-ONLY] Fetch an image from the Handwrytten CDN and return it as a base64 MCP image block. Used internally by UI apps to bypass iframe CSP restrictions — not intended for direct use. Only allows URLs from cdn.handwrytten.com or d3e924qpzqov0g.cloudfront.net.",
     {
-      url: z.string().describe("Image URL to fetch"),
+      url: z.string().describe("Full HTTPS URL of the image on cdn.handwrytten.com or d3e924qpzqov0g.cloudfront.net"),
     },
+    { readOnlyHint: true, destructiveHint: false },
     async ({ url }) => {
       try {
         // Only allow fetching from known CDN domains
@@ -312,8 +313,7 @@ export function registerAppTools(
     {
       title: "Preview Writing",
       description:
-        "Preview how a handwritten message will look on a card with the selected font. " +
-        "Renders a PNG image server-side and displays it inline.",
+        "[READ-ONLY] Render a live preview of how a handwritten message will look on a card. Shows the message in the selected handwriting font as a PNG image. Supports changing fonts interactively. No data is modified.",
       inputSchema: {
         message: z.string().describe("The message text to preview"),
         fontId: z
@@ -469,14 +469,15 @@ export function registerAppTools(
   // Tool for the writing preview app to re-render with a different font
   server.tool(
     "preview_writing",
-    "Re-render writing preview with a different font. Returns a PNG preview URL.",
+    "[READ-ONLY] Re-render a handwriting preview with different parameters. Used internally by the writing preview app — not intended for direct use. Returns a PNG image as base64.",
     {
-      fontId: z.string().describe("Font ID or label"),
-      message: z.string().describe("Message text to render"),
-      wishes: z.string().optional().describe("Wishes/closing text"),
-      inkColor: z.string().optional().describe("Ink color hex"),
-      cardId: z.string().optional().describe("Card ID for dimensions"),
+      fontId: z.string().describe("Font ID or label (from list_fonts)"),
+      message: z.string().describe("The message text to render in handwriting"),
+      wishes: z.string().optional().describe("Optional closing text below the message (e.g. 'Best,\\nThe Team')"),
+      inkColor: z.string().optional().describe("Ink color as hex string (e.g. '#0040ac' for blue, '#000000' for black)"),
+      cardId: z.string().optional().describe("Card template ID for accurate dimensions. Omit to use default card size."),
     },
+    { readOnlyHint: true, destructiveHint: false },
     async ({ fontId, message, wishes, inkColor, cardId }) => {
       try {
         const [fontsRaw, cardData] = await Promise.all([
@@ -608,8 +609,7 @@ export function registerAppTools(
     {
       title: "View Basket",
       description:
-        "View the current basket contents with card previews, recipient info, " +
-        "pricing breakdown, and checkout totals.",
+        "[READ-ONLY] Open a visual summary of the current basket contents. Shows each order with card preview image, recipient/sender addresses, message preview, per-order pricing breakdown, and checkout totals. Supports removing individual items or clearing the basket from within the UI.",
       inputSchema: {},
       _meta: {
         ui: {
@@ -701,8 +701,9 @@ export function registerAppTools(
   // Tool for the basket app to refresh data
   server.tool(
     "get_basket_summary",
-    "Fetch current basket items and checkout totals. Used by the basket summary app.",
+    "[READ-ONLY] Fetch current basket items with card details, addresses, pricing, and checkout totals. Used internally by the basket summary app — not intended for direct use. Returns {items, count, checkout}.",
     {},
+    { readOnlyHint: true, destructiveHint: false },
     async () => {
       try {
         const [itemsRaw, countRaw] = await Promise.all([
@@ -771,10 +772,11 @@ export function registerAppTools(
   // Tool for the basket app to remove a single item
   server.tool(
     "basket_remove_item",
-    "Remove a single item from the basket. Used by the basket summary app.",
+    "[DESTRUCTIVE — removes order from basket] Remove a single order from the basket. The order is discarded permanently. Used by the basket summary app.",
     {
-      basketId: z.number().describe("Basket item ID to remove"),
+      basketId: z.number().describe("Basket item ID to remove (from get_basket_summary results)"),
     },
+    { destructiveHint: true },
     async ({ basketId }) => {
       try {
         const result = await client.basket.remove(basketId);
@@ -793,8 +795,9 @@ export function registerAppTools(
   // Tool for the basket app to clear all items
   server.tool(
     "basket_clear_all",
-    "Clear all items from the basket. Used by the basket summary app.",
+    "[DESTRUCTIVE — removes ALL orders from basket] Always confirm with the user before calling. Permanently removes every order from the basket. None will be sent. Used by the basket summary app.",
     {},
+    { destructiveHint: true },
     async () => {
       try {
         const result = await client.basket.clear();

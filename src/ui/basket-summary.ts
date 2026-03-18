@@ -394,8 +394,25 @@ refreshBtn.addEventListener("click", () => {
   loadBasket();
 });
 
+let clearConfirmPending = false;
+let clearConfirmTimer: ReturnType<typeof setTimeout> | undefined;
+
 clearBtn.addEventListener("click", async () => {
-  if (!confirm("Are you sure you want to clear your basket?")) return;
+  if (!clearConfirmPending) {
+    clearConfirmPending = true;
+    clearBtn.textContent = "CONFIRM CLEAR?";
+    clearBtn.classList.add("btn-danger-confirm");
+    clearConfirmTimer = setTimeout(() => {
+      clearConfirmPending = false;
+      clearBtn.textContent = "Clear Basket";
+      clearBtn.classList.remove("btn-danger-confirm");
+    }, 4000);
+    return;
+  }
+
+  clearTimeout(clearConfirmTimer);
+  clearConfirmPending = false;
+  clearBtn.classList.remove("btn-danger-confirm");
   clearBtn.textContent = "CLEARING...";
   clearBtn.disabled = true;
   try {
@@ -412,8 +429,28 @@ clearBtn.addEventListener("click", async () => {
   }
 });
 
+let sendConfirmPending = false;
+let sendConfirmTimer: ReturnType<typeof setTimeout> | undefined;
+
 sendBtn.addEventListener("click", async () => {
-  if (!confirm("This will charge your account and mail all orders in the basket. Are you sure?")) return;
+  if (!sendConfirmPending) {
+    // First click — show confirmation state
+    sendConfirmPending = true;
+    sendBtn.textContent = "CONFIRM SEND?";
+    sendBtn.classList.add("btn-send-confirm");
+    // Auto-reset after 4 seconds if not confirmed
+    sendConfirmTimer = setTimeout(() => {
+      sendConfirmPending = false;
+      sendBtn.textContent = "SEND!";
+      sendBtn.classList.remove("btn-send-confirm");
+    }, 4000);
+    return;
+  }
+
+  // Second click — confirmed, send the basket
+  clearTimeout(sendConfirmTimer);
+  sendConfirmPending = false;
+  sendBtn.classList.remove("btn-send-confirm");
   sendBtn.textContent = "SENDING...";
   sendBtn.disabled = true;
   try {

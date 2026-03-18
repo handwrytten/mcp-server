@@ -400,6 +400,22 @@ body {
   cursor: not-allowed;
 }
 
+.btn-send-confirm {
+  background: #d55a1c;
+  animation: pulse-send 0.6s ease-in-out infinite alternate;
+}
+
+.btn-danger-confirm {
+  border-color: #e74c3c;
+  color: #e74c3c;
+  animation: pulse-send 0.6s ease-in-out infinite alternate;
+}
+
+@keyframes pulse-send {
+  from { opacity: 1; }
+  to { opacity: 0.7; }
+}
+
 /* --- States --- */
 
 .loading {

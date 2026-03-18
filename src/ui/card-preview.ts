@@ -135,10 +135,14 @@ async function loadFrontImage(card: Card, el: HTMLElement): Promise<void> {
     img.src = frontDataUri;
     img.classList.add("loaded");
   }
+  // Pre-load inside images right after front so they're ready before hover
+  if (!card.detailed_images?.inside && card.orientation === "F") return;
+  loadSecondaryImages(card, el);
 }
 
 async function loadSecondaryImages(card: Card, el: HTMLElement): Promise<void> {
   const insideFace = el.querySelector(".inside-face") as HTMLElement;
+  const innerMaskImg = el.querySelector(".inner-mask > div") as HTMLElement;
   const backFace = el.querySelector(".back-face") as HTMLElement;
   if (insideFace?.dataset.loaded && backFace?.dataset.loaded) return;
 
@@ -154,6 +158,10 @@ async function loadSecondaryImages(card: Card, el: HTMLElement): Promise<void> {
   if (insideFace && insideDataUri) {
     insideFace.style.backgroundImage = `url('${insideDataUri}')`;
     insideFace.dataset.loaded = "1";
+    // Also set the inner-mask (back of front cover) with mirrored inside image
+    if (innerMaskImg) {
+      innerMaskImg.style.backgroundImage = `url('${insideDataUri}')`;
+    }
   }
   if (backFace && backDataUri) {
     backFace.style.backgroundImage = `url('${backDataUri}')`;
@@ -167,6 +175,10 @@ function createCardElement(card: Card): HTMLElement {
     card.orientation === "L"
       ? "postcard__side_horizontal"
       : "postcard__side_vertical";
+
+  // Portrait cards flip on Y axis (like a book), landscape on X axis (like a notepad)
+  const isPortrait = card.orientation !== "L";
+  const mirrorTransform = isPortrait ? "scaleX(-1)" : "scaleY(-1)";
 
   const el = document.createElement("div");
   el.className = "card-item";
@@ -184,6 +196,9 @@ function createCardElement(card: Card): HTMLElement {
           <img alt="${escapeHtml(card.name)}" />
           <div class="image-spinner"></div>
         </div>
+        ${!isFlat ? `<div class="front-face inner-mask">
+          <div style="transform: ${mirrorTransform}"></div>
+        </div>` : ""}
         <div class="inside-face"></div>
         <div class="back-face"></div>
       </div>

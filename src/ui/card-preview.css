@@ -62,13 +62,15 @@ body {
 .card-item {
   background: #fff;
   border-radius: 8px;
-  overflow: hidden;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-  transition: box-shadow 0.2s;
+  transition: box-shadow 0.2s, z-index 0s;
+  position: relative;
+  z-index: 5;
 }
 
 .card-item:hover {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  z-index: 100;
 }
 
 /* Card header: name + price */
@@ -136,6 +138,24 @@ body {
   display: block;
 }
 
+/* Inner mask — back of the front cover, shows mirrored inside image */
+.inner-mask {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: #fff;
+  z-index: 1;
+}
+
+.inner-mask > div {
+  width: 100%;
+  height: 100%;
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+
 /* Inside face - positioned behind the front */
 .inside-face {
   position: absolute;
@@ -145,7 +165,8 @@ body {
   height: 100%;
   background-color: #fff;
   background-size: cover;
-  background-position: center;
+  background-position: bottom right;
+  background-repeat: no-repeat;
   transform: translate3d(0, 0, 0);
 }
 

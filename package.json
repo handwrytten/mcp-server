@@ -16,8 +16,8 @@
     "README.md"
   ],
   "scripts": {
-    "build": "cross-env INPUT=src/ui/card-preview.html vite build && cross-env INPUT=src/ui/writing-preview.html vite build && tsup",
-    "build:ui": "cross-env INPUT=src/ui/card-preview.html vite build && cross-env INPUT=src/ui/writing-preview.html vite build",
+    "build": "cross-env INPUT=src/ui/card-preview.html vite build && cross-env INPUT=src/ui/writing-preview.html vite build && cross-env INPUT=src/ui/basket-summary.html vite build && tsup",
+    "build:ui": "cross-env INPUT=src/ui/card-preview.html vite build && cross-env INPUT=src/ui/writing-preview.html vite build && cross-env INPUT=src/ui/basket-summary.html vite build",
     "build:server": "tsup",
     "dev": "tsx src/index.ts",
     "prepublishOnly": "npm run build"

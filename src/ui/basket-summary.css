@@ -1,0 +1,540 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   Basket Summary App Styles
+   Matches the look and feel of app.handwrytten.com/my-basket
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--background, #ffffff);
+  color: var(--foreground, #333333);
+}
+
+.main {
+  padding: 16px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+/* --- Header --- */
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  border-bottom: 2px solid #ee6723;
+  padding-bottom: 12px;
+}
+
+.header h1 {
+  font-size: 20px;
+  font-weight: 600;
+  color: #333;
+}
+
+.item-count {
+  font-size: 14px;
+  color: #999;
+}
+
+/* --- Basket Items --- */
+
+.basket-items {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+/* --- Order Card --- */
+
+.order-card {
+  background: #fff;
+  border: 1px solid #e8e8e8;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.order-card-body {
+  display: flex;
+  gap: 16px;
+  padding: 16px;
+}
+
+.order-card-image {
+  flex-shrink: 0;
+  width: 100px;
+  height: 100px;
+  background: #f5f5f5;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+}
+
+.order-card-image img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.order-card-image .image-spinner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 24px;
+  height: 24px;
+  border: 2px solid transparent;
+  border-top: 2px solid #ee6723;
+  border-right: 2px solid #ee6723;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.order-card-image img.loaded {
+  opacity: 1;
+}
+
+.order-card-image img:not(.loaded) {
+  opacity: 0;
+}
+
+.order-card-image img.loaded ~ .image-spinner {
+  display: none;
+}
+
+@keyframes spin {
+  to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+.order-card-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.order-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.order-card-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #333;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 70%;
+}
+
+.order-card-price {
+  font-size: 15px;
+  font-weight: 700;
+  color: #ee6723;
+  white-space: nowrap;
+}
+
+.order-card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: #666;
+}
+
+.order-card-meta .meta-row {
+  display: flex;
+  gap: 6px;
+}
+
+.meta-label {
+  color: #999;
+  min-width: 55px;
+}
+
+.meta-value {
+  color: #333;
+}
+
+/* --- Message Preview --- */
+
+.order-message {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: #faf9f7;
+  border-radius: 4px;
+  border-left: 3px solid #ee6723;
+  font-size: 13px;
+  color: #555;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 80px;
+  overflow: hidden;
+  position: relative;
+}
+
+.order-message.expanded {
+  max-height: none;
+}
+
+.order-message-toggle {
+  display: inline-block;
+  font-size: 12px;
+  color: #ee6723;
+  cursor: pointer;
+  margin-top: 4px;
+}
+
+/* --- Address Row --- */
+
+.order-addresses {
+  display: flex;
+  gap: 16px;
+  padding: 0 16px 12px;
+  flex-wrap: wrap;
+}
+
+.address-block {
+  flex: 1;
+  min-width: 180px;
+  font-size: 12px;
+  color: #666;
+  line-height: 1.5;
+}
+
+.address-block-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #999;
+  margin-bottom: 2px;
+}
+
+.address-block-name {
+  font-weight: 600;
+  color: #333;
+}
+
+/* --- Price Breakdown (per order) --- */
+
+.order-price-breakdown {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 16px;
+  background: #fafafa;
+  border-top: 1px solid #f0f0f0;
+  font-size: 12px;
+  color: #666;
+}
+
+.price-item {
+  display: flex;
+  gap: 4px;
+}
+
+.price-item-label {
+  color: #999;
+}
+
+.price-item-value {
+  font-weight: 600;
+  color: #333;
+}
+
+/* --- Order Footer (actions) --- */
+
+.order-card-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 8px 16px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.btn-remove {
+  background: none;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 5px 14px;
+  font-size: 12px;
+  color: #999;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-remove:hover {
+  border-color: #e74c3c;
+  color: #e74c3c;
+}
+
+.btn-edit {
+  background: none;
+  border: 1px solid #ee6723;
+  border-radius: 4px;
+  padding: 5px 14px;
+  font-size: 12px;
+  color: #ee6723;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-edit:hover {
+  background: #ee6723;
+  color: #fff;
+}
+
+/* --- Checkout Section --- */
+
+.checkout-section {
+  background: #fff;
+  border: 1px solid #e8e8e8;
+  border-radius: 6px;
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+.checkout-header {
+  margin-bottom: 16px;
+  border-bottom: 2px solid #ee6723;
+  padding-bottom: 8px;
+}
+
+.checkout-header h2 {
+  font-size: 17px;
+  font-weight: 600;
+  color: #333;
+}
+
+.checkout-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.checkout-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  color: #555;
+}
+
+.checkout-row.checkout-total {
+  border-top: 1px solid #e8e8e8;
+  padding-top: 10px;
+  margin-top: 4px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #333;
+}
+
+.checkout-row.checkout-total span:last-child {
+  color: #ee6723;
+}
+
+/* --- Action Buttons --- */
+
+.actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.btn {
+  padding: 12px 28px;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.btn-secondary {
+  background: #f0f0f0;
+  color: #555;
+}
+
+.btn-secondary:hover {
+  background: #e0e0e0;
+}
+
+.btn-danger {
+  background: none;
+  border: 1px solid #ddd;
+  color: #999;
+}
+
+.btn-danger:hover {
+  border-color: #e74c3c;
+  color: #e74c3c;
+}
+
+/* --- States --- */
+
+.loading {
+  text-align: center;
+  padding: 40px;
+  color: #999;
+  font-size: 14px;
+}
+
+.loading.hidden,
+.hidden {
+  display: none;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: #999;
+  font-size: 15px;
+}
+
+/* --- Schedule Badge --- */
+
+.schedule-badge {
+  display: inline-block;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  background: #fff3e0;
+  color: #e65100;
+  font-weight: 500;
+}
+
+.test-badge {
+  display: inline-block;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  background: #fff9c4;
+  color: #f57f17;
+  font-weight: 600;
+}
+
+.bulk-badge {
+  display: inline-block;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  background: #e8eaf6;
+  color: #283593;
+  font-weight: 500;
+}
+
+/* --- Responsive --- */
+
+@media (max-width: 600px) {
+  .order-card-body {
+    flex-direction: column;
+  }
+
+  .order-card-image {
+    width: 100%;
+    height: 160px;
+  }
+
+  .order-addresses {
+    flex-direction: column;
+  }
+
+  .actions {
+    flex-direction: column;
+  }
+
+  .btn {
+    width: 100%;
+    text-align: center;
+  }
+}
+
+/* --- Dark mode support --- */
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background: #1a1a1a;
+    color: #e0e0e0;
+  }
+
+  .header h1,
+  .checkout-header h2 {
+    color: #e0e0e0;
+  }
+
+  .order-card {
+    background: #2a2a2a;
+    border-color: #444;
+  }
+
+  .order-card-name,
+  .meta-value,
+  .address-block-name,
+  .price-item-value {
+    color: #e0e0e0;
+  }
+
+  .order-card-meta,
+  .address-block,
+  .order-price-breakdown {
+    color: #aaa;
+  }
+
+  .order-message {
+    background: #333;
+    color: #ccc;
+  }
+
+  .order-price-breakdown {
+    background: #252525;
+    border-color: #444;
+  }
+
+  .order-card-footer {
+    border-color: #444;
+  }
+
+  .checkout-section {
+    background: #2a2a2a;
+    border-color: #444;
+  }
+
+  .checkout-row {
+    color: #ccc;
+  }
+
+  .checkout-row.checkout-total {
+    color: #e0e0e0;
+    border-color: #444;
+  }
+
+  .order-card-image {
+    background: #333;
+  }
+
+  .btn-secondary {
+    background: #333;
+    color: #ccc;
+  }
+
+  .btn-remove,
+  .btn-danger {
+    border-color: #555;
+    color: #aaa;
+  }
+}

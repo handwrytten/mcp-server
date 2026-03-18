@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Basket</title>
+</head>
+<body>
+  <main class="main">
+    <div class="header">
+      <h1>My Basket</h1>
+      <span id="item-count" class="item-count"></span>
+    </div>
+    <div id="basket-items" class="basket-items"></div>
+    <div id="loading" class="loading">Loading basket...</div>
+    <div id="empty-state" class="empty-state hidden">
+      <p>Your basket is empty.</p>
+    </div>
+
+    <div id="checkout-section" class="checkout-section hidden">
+      <div class="checkout-header">
+        <h2>Checkout</h2>
+      </div>
+      <div class="checkout-grid">
+        <div class="checkout-row">
+          <span>Subtotal</span>
+          <span id="checkout-subtotal">$0.00</span>
+        </div>
+        <div class="checkout-row">
+          <span>Tax</span>
+          <span id="checkout-tax">Free</span>
+        </div>
+        <div id="checkout-credits-row" class="checkout-row hidden">
+          <span>Applied Credits</span>
+          <span id="checkout-credits">-$0.00</span>
+        </div>
+        <div id="checkout-coupon-row" class="checkout-row hidden">
+          <span>Coupon</span>
+          <span id="checkout-coupon">-$0.00</span>
+        </div>
+        <div class="checkout-row checkout-total">
+          <span>Total</span>
+          <span id="checkout-total">$0.00</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="actions" class="actions hidden">
+      <button id="refresh-btn" class="btn btn-secondary">Refresh</button>
+      <button id="clear-btn" class="btn btn-danger">Clear Basket</button>
+    </div>
+  </main>
+  <script type="module" src="/src/ui/basket-summary.ts"></script>
+</body>
+</html>

@@ -595,4 +595,237 @@ export function registerAppTools(
       };
     }
   );
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // BASKET SUMMARY APP
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  const basketSummaryUri = "ui://handwrytten/basket-summary.html";
+
+  registerAppTool(
+    server,
+    "View-Basket",
+    {
+      title: "View Basket",
+      description:
+        "View the current basket contents with card previews, recipient info, " +
+        "pricing breakdown, and checkout totals.",
+      inputSchema: {},
+      _meta: {
+        ui: {
+          resourceUri: basketSummaryUri,
+          csp: {
+            "img-src": [
+              "https://*.cloudfront.net",
+              "https://*.handwrytten.com",
+              "https://*.amazonaws.com",
+              "data:",
+              "blob:",
+            ],
+            "connect-src": [
+              "https://*.cloudfront.net",
+              "https://*.handwrytten.com",
+              "https://*.amazonaws.com",
+            ],
+          },
+        },
+      },
+    },
+    async (): Promise<CallToolResult> => {
+      try {
+        // Fetch basket items and count in parallel
+        const [itemsRaw, countRaw] = await Promise.all([
+          (client as any)._http.get("basket/allGrouped?page=1&limit=50") as Promise<any>,
+          (client as any)._http.get("basket/count") as Promise<any>,
+        ]);
+
+        const items = (itemsRaw?.items ?? []).map((item: any) => ({
+          id: item.id,
+          card_cover: cdnUrl(item.card_cover || item.card?.cover),
+          card: item.card ? {
+            id: item.card.id,
+            name: item.card.name,
+            cover: cdnUrl(item.card.cover),
+            orientation: item.card.orientation,
+          } : undefined,
+          message: item.message,
+          wishes: item.wishes,
+          address_from: item.address_from,
+          address_to: item.address_to,
+          date_send: item.date_send,
+          fontInfo: item.fontInfo,
+          price_structure: item.price_structure,
+          sub_total: item.sub_total,
+          is_bulk: item.is_bulk,
+          children_total: item.children_total,
+          test_mode: item.test_mode,
+          denomination: item.denomination,
+          insert: item.insert,
+          shipping_details: item.shipping_details,
+          status: item.status,
+        }));
+
+        const count = countRaw?.count ?? items.length;
+
+        // Calculate checkout totals
+        let grandTotal = 0;
+        items.forEach((item: any) => {
+          grandTotal += item.price_structure?.sub_total ?? item.sub_total ?? 0;
+        });
+
+        const checkout = {
+          grand_total: grandTotal,
+          tax: 0,
+          total: grandTotal,
+          applied_credit: 0,
+          coupon_credit: 0,
+        };
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({ items, count, checkout }),
+            },
+          ],
+        };
+      } catch (e: any) {
+        return {
+          content: [{ type: "text", text: `Error: ${e.message}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  // Tool for the basket app to refresh data
+  server.tool(
+    "get_basket_summary",
+    "Fetch current basket items and checkout totals. Used by the basket summary app.",
+    {},
+    async () => {
+      try {
+        const [itemsRaw, countRaw] = await Promise.all([
+          (client as any)._http.get("basket/allGrouped?page=1&limit=50") as Promise<any>,
+          (client as any)._http.get("basket/count") as Promise<any>,
+        ]);
+
+        const items = (itemsRaw?.items ?? []).map((item: any) => ({
+          id: item.id,
+          card_cover: cdnUrl(item.card_cover || item.card?.cover),
+          card: item.card ? {
+            id: item.card.id,
+            name: item.card.name,
+            cover: cdnUrl(item.card.cover),
+            orientation: item.card.orientation,
+          } : undefined,
+          message: item.message,
+          wishes: item.wishes,
+          address_from: item.address_from,
+          address_to: item.address_to,
+          date_send: item.date_send,
+          fontInfo: item.fontInfo,
+          price_structure: item.price_structure,
+          sub_total: item.sub_total,
+          is_bulk: item.is_bulk,
+          children_total: item.children_total,
+          test_mode: item.test_mode,
+          denomination: item.denomination,
+          insert: item.insert,
+          shipping_details: item.shipping_details,
+          status: item.status,
+        }));
+
+        const count = countRaw?.count ?? items.length;
+
+        let grandTotal = 0;
+        items.forEach((item: any) => {
+          grandTotal += item.price_structure?.sub_total ?? item.sub_total ?? 0;
+        });
+
+        const checkout = {
+          grand_total: grandTotal,
+          tax: 0,
+          total: grandTotal,
+          applied_credit: 0,
+          coupon_credit: 0,
+        };
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({ items, count, checkout }),
+            },
+          ],
+        };
+      } catch (e: any) {
+        return {
+          content: [{ type: "text" as const, text: `Error: ${e.message}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  // Tool for the basket app to remove a single item
+  server.tool(
+    "basket_remove_item",
+    "Remove a single item from the basket. Used by the basket summary app.",
+    {
+      basketId: z.number().describe("Basket item ID to remove"),
+    },
+    async ({ basketId }) => {
+      try {
+        const result = await client.basket.remove(basketId);
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify({ success: true, result }) }],
+        };
+      } catch (e: any) {
+        return {
+          content: [{ type: "text" as const, text: `Error: ${e.message}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  // Tool for the basket app to clear all items
+  server.tool(
+    "basket_clear_all",
+    "Clear all items from the basket. Used by the basket summary app.",
+    {},
+    async () => {
+      try {
+        const result = await client.basket.clear();
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify({ success: true, result }) }],
+        };
+      } catch (e: any) {
+        return {
+          content: [{ type: "text" as const, text: `Error: ${e.message}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  // Basket summary resource
+  registerAppResource(
+    server,
+    basketSummaryUri,
+    basketSummaryUri,
+    { mimeType: RESOURCE_MIME_TYPE },
+    async (): Promise<ReadResourceResult> => {
+      const html = await fs.readFile(
+        path.join(DIST_DIR, "basket-summary.html"),
+        "utf-8"
+      );
+      return {
+        contents: [
+          { uri: basketSummaryUri, mimeType: RESOURCE_MIME_TYPE, text: html },
+        ],
+      };
+    }
+  );
 }

@@ -62,6 +62,7 @@ interface BasketItem {
   children_total?: number;
   test_mode?: number;
   denomination?: { price?: number; name?: string };
+  gift_card?: { id?: number; name?: string };
   insert?: { name?: string };
   shipping_details?: { name?: string };
   status?: string;
@@ -258,7 +259,7 @@ function renderBasketItem(item: BasketItem): HTMLElement {
             <span class="meta-value">${item.date_send ? `<span class="schedule-badge">${formatDate(item.date_send)}</span>` : "ASAP"}</span>
           </div>
           ${item.fontInfo?.label ? `<div class="meta-row"><span class="meta-label">Font:</span><span class="meta-value">${escapeHtml(item.fontInfo.label || item.fontInfo.name || "")}</span></div>` : ""}
-          ${item.denomination?.name ? `<div class="meta-row"><span class="meta-label">Gift:</span><span class="meta-value">${escapeHtml(item.denomination.name)} (${formatPrice(item.denomination.price)})</span></div>` : ""}
+          ${item.denomination || item.gift_card ? `<div class="meta-row"><span class="meta-label">Gift:</span><span class="meta-value">${escapeHtml(item.gift_card?.name || item.denomination?.name || "Gift Card")} (${formatPrice(item.denomination?.price)})</span></div>` : ""}
           ${item.insert?.name ? `<div class="meta-row"><span class="meta-label">Insert:</span><span class="meta-value">${escapeHtml(item.insert.name)}</span></div>` : ""}
         </div>
         ${message ? `<div class="order-message"><div class="order-message-label">Message:</div>${escapeHtml(message)}</div>` : ""}

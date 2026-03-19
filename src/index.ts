@@ -15,6 +15,8 @@
  * server fully stateless and horizontally scalable.
  */
 
+import fs from "node:fs";
+import path from "node:path";
 import { urlencoded } from "express";
 import type { Request, Response } from "express";
 
@@ -267,6 +269,20 @@ async function runHttp(): Promise<void> {
       console.error("Image proxy error:", e.message);
       res.status(502).send("Proxy error");
     }
+  });
+
+  // -----------------------------------------------------------------------
+  // Documentation page (GET /)
+  // -----------------------------------------------------------------------
+
+  const docsHtmlPath = import.meta.filename.endsWith(".ts")
+    ? path.join(import.meta.dirname, "ui", "docs.html")
+    : path.join(import.meta.dirname, "src", "ui", "docs.html");
+  const docsHtml = fs.readFileSync(docsHtmlPath, "utf-8");
+
+  app.get("/", (_req: Request, res: Response) => {
+    res.set("Content-Type", "text/html");
+    res.send(docsHtml);
   });
 
   // -----------------------------------------------------------------------

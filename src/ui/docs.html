@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Handwrytten MCP Server - Send Real Handwritten Notes via AI</title>
+  <meta name="description" content="Connect your AI assistant to Handwrytten and send real, pen-written greeting cards and notes. MCP server for Claude, ChatGPT, and other AI assistants.">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --orange: #ee6723;
+      --orange-dark: #d4551a;
+      --orange-light: #fdf0e9;
+      --gray-50: #f9fafb;
+      --gray-100: #f3f4f6;
+      --gray-200: #e5e7eb;
+      --gray-300: #d1d5db;
+      --gray-500: #6b7280;
+      --gray-600: #4b5563;
+      --gray-700: #374151;
+      --gray-800: #1f2937;
+      --gray-900: #111827;
+      --radius: 12px;
+      --max-width: 960px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      color: var(--gray-800);
+      line-height: 1.6;
+      background: #fff;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: var(--orange); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* Header */
+    .header {
+      background: #fff;
+      border-bottom: 1px solid var(--gray-200);
+      padding: 16px 24px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .header-inner {
+      max-width: var(--max-width);
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .header-logo {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--orange);
+      letter-spacing: -0.3px;
+    }
+    .header-links { display: flex; gap: 20px; font-size: 14px; }
+    .header-links a { color: var(--gray-600); }
+    .header-links a:hover { color: var(--orange); text-decoration: none; }
+
+    /* Hero */
+    .hero {
+      background: linear-gradient(135deg, var(--orange-light) 0%, #fff 60%);
+      padding: 80px 24px 64px;
+      text-align: center;
+    }
+    .hero h1 {
+      font-size: 42px;
+      font-weight: 800;
+      color: var(--gray-900);
+      letter-spacing: -0.5px;
+      margin-bottom: 16px;
+    }
+    .hero h1 span { color: var(--orange); }
+    .hero .tagline {
+      font-size: 20px;
+      color: var(--gray-600);
+      max-width: 600px;
+      margin: 0 auto 32px;
+    }
+    .hero-endpoint {
+      display: inline-block;
+      background: var(--gray-900);
+      color: #fff;
+      font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+      font-size: 15px;
+      padding: 12px 24px;
+      border-radius: 8px;
+      letter-spacing: 0.3px;
+    }
+
+    /* Main content */
+    .content {
+      max-width: var(--max-width);
+      margin: 0 auto;
+      padding: 0 24px 80px;
+    }
+
+    section { margin-top: 56px; }
+    section h2 {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--gray-900);
+      margin-bottom: 16px;
+      letter-spacing: -0.3px;
+    }
+    section h3 {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--gray-800);
+      margin: 24px 0 8px;
+    }
+    section p, section li {
+      color: var(--gray-700);
+      font-size: 16px;
+      line-height: 1.7;
+    }
+    section ul, section ol { padding-left: 24px; }
+    section li { margin-bottom: 6px; }
+
+    /* Cards / panels */
+    .panel {
+      background: var(--gray-50);
+      border: 1px solid var(--gray-200);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-top: 16px;
+    }
+    .panel h3 { margin-top: 0; }
+
+    .panel + .panel { margin-top: 12px; }
+
+    code, .code {
+      font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+      font-size: 13.5px;
+    }
+    code {
+      background: var(--gray-100);
+      border: 1px solid var(--gray-200);
+      padding: 2px 7px;
+      border-radius: 5px;
+      color: var(--gray-800);
+    }
+    pre {
+      background: var(--gray-900);
+      color: #e5e7eb;
+      padding: 20px;
+      border-radius: 10px;
+      overflow-x: auto;
+      font-size: 13.5px;
+      line-height: 1.6;
+      margin-top: 12px;
+    }
+    pre code {
+      background: none;
+      border: none;
+      padding: 0;
+      color: inherit;
+      font-size: inherit;
+    }
+
+    /* Tool grid */
+    .tool-category { margin-top: 24px; }
+    .tool-category h3 {
+      color: var(--orange);
+      font-size: 16px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid var(--orange-light);
+    }
+    .tool-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 10px;
+    }
+    .tool-item {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      padding: 8px 12px;
+      border-radius: 8px;
+      background: var(--gray-50);
+      border: 1px solid var(--gray-100);
+    }
+    .tool-item code {
+      white-space: nowrap;
+      flex-shrink: 0;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .tool-item .desc {
+      color: var(--gray-500);
+      font-size: 13.5px;
+    }
+
+    /* Workflow steps */
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+      margin-top: 16px;
+    }
+    .step {
+      background: #fff;
+      border: 1px solid var(--gray-200);
+      border-radius: var(--radius);
+      padding: 24px;
+      text-align: center;
+    }
+    .step-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
+      background: var(--orange);
+      color: #fff;
+      font-weight: 700;
+      font-size: 18px;
+      border-radius: 50%;
+      margin-bottom: 12px;
+    }
+    .step h4 {
+      font-size: 16px;
+      color: var(--gray-900);
+      margin-bottom: 6px;
+    }
+    .step p {
+      font-size: 14px;
+      color: var(--gray-500);
+    }
+
+    /* Notes callout */
+    .callout {
+      background: var(--orange-light);
+      border-left: 4px solid var(--orange);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 20px 24px;
+      margin-top: 16px;
+    }
+    .callout li { color: var(--gray-700); }
+
+    /* Footer */
+    .footer {
+      background: var(--gray-50);
+      border-top: 1px solid var(--gray-200);
+      padding: 32px 24px;
+      text-align: center;
+      color: var(--gray-500);
+      font-size: 14px;
+    }
+    .footer-links { margin-bottom: 12px; display: flex; gap: 24px; justify-content: center; flex-wrap: wrap; }
+    .footer-links a { color: var(--gray-600); }
+
+    /* Responsive */
+    @media (max-width: 640px) {
+      .hero { padding: 48px 20px 40px; }
+      .hero h1 { font-size: 28px; }
+      .hero .tagline { font-size: 17px; }
+      .hero-endpoint { font-size: 13px; padding: 10px 16px; word-break: break-all; }
+      section h2 { font-size: 22px; }
+      .tool-grid { grid-template-columns: 1fr; }
+      .header-links { gap: 12px; font-size: 13px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="header">
+    <div class="header-inner">
+      <div class="header-logo">Handwrytten</div>
+      <nav class="header-links">
+        <a href="https://www.handwrytten.com">Website</a>
+        <a href="https://www.handwrytten.com/api/">API Docs</a>
+        <a href="https://github.com/handwrytten/mcp-server">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <section class="hero">
+    <h1><span>Handwrytten</span> MCP Server</h1>
+    <p class="tagline">Send real, robot-penwritten greeting cards and notes directly from your AI assistant.</p>
+    <div class="hero-endpoint">https://mcp.handwrytten.com/mcp</div>
+  </section>
+
+  <!-- Content -->
+  <div class="content">
+
+    <!-- What is this? -->
+    <section>
+      <h2>What is this?</h2>
+      <p>
+        The <strong>Model Context Protocol (MCP)</strong> is an open standard that lets AI assistants
+        connect to external tools and services. This server implements MCP for
+        <a href="https://www.handwrytten.com">Handwrytten</a>, the leading platform for sending
+        real handwritten notes at scale using robots with real pens.
+      </p>
+      <p style="margin-top: 12px;">
+        Once connected, your AI assistant (Claude, ChatGPT, or any MCP-compatible client) can browse
+        card designs, compose personalized messages, manage your address book, and send physical
+        handwritten cards &mdash; all through natural conversation.
+      </p>
+    </section>
+
+    <!-- Getting Started -->
+    <section>
+      <h2>Getting Started</h2>
+
+      <div class="panel">
+        <h3>Option 1: Claude.ai / Remote (OAuth)</h3>
+        <p>
+          The easiest way to get started. Add Handwrytten from the
+          <a href="https://modelcontextprotocol.io/directory">MCP Directory</a>
+          or connect directly using the endpoint URL:
+        </p>
+        <pre><code>https://mcp.handwrytten.com/mcp</code></pre>
+        <p style="margin-top: 12px;">
+          You will be prompted to sign in with your Handwrytten account via OAuth. No API key needed.
+        </p>
+      </div>
+
+      <div class="panel">
+        <h3>Option 2: Claude Desktop / CLI (stdio)</h3>
+        <p>
+          For local use with Claude Desktop or Claude Code, install the server via npm and configure
+          it with your Handwrytten API key.
+        </p>
+        <ol style="margin-top: 12px;">
+          <li>Get your API key at <a href="https://www.handwrytten.com/api/">handwrytten.com/api</a></li>
+          <li>Add to your Claude Desktop config (<code>claude_desktop_config.json</code>):</li>
+        </ol>
+        <pre><code>{
+  "mcpServers": {
+    "handwrytten": {
+      "command": "npx",
+      "args": ["-y", "handwrytten-mcp-server"],
+      "env": {
+        "HANDWRYTTEN_API_KEY": "your-api-key-here"
+      }
+    }
+  }
+}</code></pre>
+      </div>
+    </section>
+
+    <!-- Available Tools -->
+    <section>
+      <h2>Available Tools</h2>
+      <p>The server exposes 30+ tools organized by category. Your AI assistant discovers these automatically once connected.</p>
+
+      <div class="tool-category">
+        <h3>Sending Notes</h3>
+        <div class="tool-grid">
+          <div class="tool-item"><code>send_order</code> <span class="desc">Send a handwritten card to a recipient</span></div>
+          <div class="tool-item"><code>get_order</code> <span class="desc">Look up an order by ID</span></div>
+          <div class="tool-item"><code>list_orders</code> <span class="desc">List recent orders with status</span></div>
+          <div class="tool-item"><code>list_past_baskets</code> <span class="desc">View previously sent basket batches</span></div>
+        </div>
+      </div>
+
+      <div class="tool-category">
+        <h3>Browsing Cards &amp; Fonts</h3>
+        <div class="tool-grid">
+          <div class="tool-item"><code>list_cards</code> <span class="desc">Browse available card designs</span></div>
+          <div class="tool-item"><code>list_card_categories</code> <span class="desc">List card categories (Birthday, Thank You, etc.)</span></div>
+          <div class="tool-item"><code>get_card_details</code> <span class="desc">Get full details for a specific card</span></div>
+          <div class="tool-item"><code>list_fonts</code> <span class="desc">List available handwriting fonts</span></div>
+          <div class="tool-item"><code>list_customizer_fonts</code> <span class="desc">List fonts for card cover customization</span></div>
+        </div>
+      </div>
+
+      <div class="tool-category">
+        <h3>Address Book</h3>
+        <div class="tool-grid">
+          <div class="tool-item"><code>list_recipients</code> <span class="desc">List saved recipient addresses</span></div>
+          <div class="tool-item"><code>add_recipient</code> <span class="desc">Add a new recipient</span></div>
+          <div class="tool-item"><code>update_recipient</code> <span class="desc">Update an existing recipient</span></div>
+          <div class="tool-item"><code>delete_recipient</code> <span class="desc">Remove a recipient</span></div>
+          <div class="tool-item"><code>list_senders</code> <span class="desc">List return addresses</span></div>
+          <div class="tool-item"><code>add_sender</code> <span class="desc">Add a new return address</span></div>
+          <div class="tool-item"><code>delete_sender</code> <span class="desc">Remove a return address</span></div>
+          <div class="tool-item"><code>list_countries</code> <span class="desc">List supported countries</span></div>
+          <div class="tool-item"><code>list_states</code> <span class="desc">List states/provinces for a country</span></div>
+        </div>
+      </div>
+
+      <div class="tool-category">
+        <h3>Extras</h3>
+        <div class="tool-grid">
+          <div class="tool-item"><code>list_gift_cards</code> <span class="desc">Browse gift card inserts</span></div>
+          <div class="tool-item"><code>list_inserts</code> <span class="desc">List available card inserts</span></div>
+          <div class="tool-item"><code>list_signatures</code> <span class="desc">List saved signature images</span></div>
+          <div class="tool-item"><code>calculate_targets</code> <span class="desc">Calculate targeting info for campaigns</span></div>
+          <div class="tool-item"><code>get_user</code> <span class="desc">Get current user account info</span></div>
+        </div>
+      </div>
+
+      <div class="tool-category">
+        <h3>Custom Cards</h3>
+        <div class="tool-grid">
+          <div class="tool-item"><code>list_custom_card_dimensions</code> <span class="desc">Available custom card sizes</span></div>
+          <div class="tool-item"><code>upload_custom_image</code> <span class="desc">Upload an image for a custom card</span></div>
+          <div class="tool-item"><code>create_custom_card</code> <span class="desc">Create a card from uploaded images</span></div>
+        </div>
+      </div>
+
+      <div class="tool-category">
+        <h3>QR Codes</h3>
+        <div class="tool-grid">
+          <div class="tool-item"><code>create_qr_code</code> <span class="desc">Generate a QR code for cards</span></div>
+          <div class="tool-item"><code>list_qr_codes</code> <span class="desc">List your saved QR codes</span></div>
+          <div class="tool-item"><code>delete_qr_code</code> <span class="desc">Delete a QR code</span></div>
+          <div class="tool-item"><code>list_qr_code_frames</code> <span class="desc">List available QR code frame styles</span></div>
+        </div>
+      </div>
+
+      <div class="tool-category">
+        <h3>Basket (Multi-Step Orders)</h3>
+        <div class="tool-grid">
+          <div class="tool-item"><code>basket_add_order</code> <span class="desc">Add an order to the basket</span></div>
+          <div class="tool-item"><code>basket_list</code> <span class="desc">View current basket contents</span></div>
+          <div class="tool-item"><code>basket_count</code> <span class="desc">Get number of items in basket</span></div>
+          <div class="tool-item"><code>basket_remove</code> <span class="desc">Remove an item from the basket</span></div>
+          <div class="tool-item"><code>basket_clear</code> <span class="desc">Clear all basket items</span></div>
+          <div class="tool-item"><code>basket_send</code> <span class="desc">Send all items in the basket</span></div>
+        </div>
+      </div>
+
+      <div class="tool-category">
+        <h3>Interactive Apps</h3>
+        <div class="tool-grid">
+          <div class="tool-item"><code>Preview-Cards</code> <span class="desc">Visual card browser with 3D flip previews</span></div>
+          <div class="tool-item"><code>View-Basket</code> <span class="desc">Interactive basket summary with pricing</span></div>
+          <div class="tool-item"><code>Preview-Writing</code> <span class="desc">Live handwriting message preview</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Typical Workflow -->
+    <section>
+      <h2>Typical Workflow</h2>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <h4>Browse Cards &amp; Fonts</h4>
+          <p>Ask your AI to show you available card designs and handwriting styles. Use the interactive card browser for a visual experience.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <h4>Compose Your Message</h4>
+          <p>Tell your AI what you want to say. Preview how it will look in your chosen handwriting font before sending.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <h4>Send Your Card</h4>
+          <p>Provide the recipient address and confirm. Your handwritten card will be mailed via USPS within 1-2 business days.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Important Notes -->
+    <section>
+      <h2>Important Notes</h2>
+      <div class="callout">
+        <ul>
+          <li><strong>Always browse before sending.</strong> Use <code>list_cards</code> and <code>list_fonts</code> to discover available options before placing an order.</li>
+          <li><strong>Confirm before ordering.</strong> Sending a card costs money and triggers physical mail. Your AI assistant will confirm details before placing any order.</li>
+          <li><strong>Address requirements.</strong> Recipient addresses must include a valid street address, city, state, and ZIP code. PO Boxes are supported.</li>
+          <li><strong>Basket for bulk orders.</strong> Use the basket tools to queue up multiple cards and send them all at once.</li>
+          <li><strong>International shipping.</strong> Cards can be sent to many countries. Use <code>list_countries</code> to see supported destinations.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- Links -->
+    <section>
+      <h2>Resources</h2>
+      <ul>
+        <li><a href="https://www.handwrytten.com">Handwrytten Website</a> &mdash; Create an account and manage your cards</li>
+        <li><a href="https://www.handwrytten.com/api/">API Documentation</a> &mdash; Get your API key and explore the REST API</li>
+        <li><a href="https://github.com/handwrytten/mcp-server">GitHub Repository</a> &mdash; Source code, issues, and contributions</li>
+        <li><a href="https://modelcontextprotocol.io">Model Context Protocol</a> &mdash; Learn more about MCP</li>
+      </ul>
+    </section>
+
+  </div>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="footer-links">
+      <a href="https://www.handwrytten.com">handwrytten.com</a>
+      <a href="https://www.handwrytten.com/api/">API</a>
+      <a href="https://github.com/handwrytten/mcp-server">GitHub</a>
+    </div>
+    <p>&copy; 2025 Handwrytten. All rights reserved.</p>
+  </footer>
+
+</body>
+</html>

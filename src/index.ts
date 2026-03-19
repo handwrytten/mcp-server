@@ -29,6 +29,7 @@ import { Handwrytten } from "handwrytten";
 
 import { registerTools } from "./tools.js";
 import { registerAppTools, previewCache } from "./app-tools.js";
+import { registerPrompts } from "./prompts.js";
 import { setupAuthRoutes, extractBearerToken, type OAuthConfig } from "./auth.js";
 
 // ---------------------------------------------------------------------------
@@ -49,12 +50,13 @@ function createMcpServer(client: Handwrytten, serverUrl?: string): McpServer {
   const server = new McpServer(
     { name: SERVER_NAME, version: SERVER_VERSION },
     {
-      capabilities: { tools: {} },
+      capabilities: { tools: {}, prompts: {} },
       instructions: MCP_INSTRUCTIONS,
     }
   );
   registerTools(server, client);
   registerAppTools(server, client, serverUrl);
+  registerPrompts(server);
   return server;
 }
 

@@ -79,7 +79,7 @@
     .hero .tagline {
       font-size: 20px;
       color: var(--gray-600);
-      max-width: 600px;
+      max-width: 640px;
       margin: 0 auto 32px;
     }
     .hero-endpoint {
@@ -131,7 +131,6 @@
       margin-top: 16px;
     }
     .panel h3 { margin-top: 0; }
-
     .panel + .panel { margin-top: 12px; }
 
     code, .code {
@@ -163,41 +162,56 @@
       font-size: inherit;
     }
 
-    /* Tool grid */
-    .tool-category { margin-top: 24px; }
-    .tool-category h3 {
+    /* Feature list */
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 12px;
+      margin-top: 16px;
+    }
+    .feature-item {
+      padding: 16px;
+      border-radius: 8px;
+      background: var(--gray-50);
+      border: 1px solid var(--gray-100);
+    }
+    .feature-item strong { color: var(--gray-900); }
+
+    /* Tool tables */
+    .tool-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      font-size: 15px;
+    }
+    .tool-table th {
+      text-align: left;
+      padding: 10px 12px;
+      background: var(--gray-50);
+      border-bottom: 2px solid var(--gray-200);
+      color: var(--gray-600);
+      font-weight: 600;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .tool-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--gray-100);
+      vertical-align: top;
+    }
+    .tool-table td:first-child { white-space: nowrap; }
+    .tool-table tr:last-child td { border-bottom: none; }
+    .tool-category { margin-top: 32px; }
+    .tool-category > h3 {
       color: var(--orange);
       font-size: 16px;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.5px;
-      margin-bottom: 12px;
+      margin-bottom: 4px;
       padding-bottom: 8px;
       border-bottom: 2px solid var(--orange-light);
-    }
-    .tool-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      gap: 10px;
-    }
-    .tool-item {
-      display: flex;
-      align-items: baseline;
-      gap: 10px;
-      padding: 8px 12px;
-      border-radius: 8px;
-      background: var(--gray-50);
-      border: 1px solid var(--gray-100);
-    }
-    .tool-item code {
-      white-space: nowrap;
-      flex-shrink: 0;
-      font-size: 13px;
-      font-weight: 600;
-    }
-    .tool-item .desc {
-      color: var(--gray-500);
-      font-size: 13.5px;
     }
 
     /* Workflow steps */
@@ -232,9 +246,36 @@
       color: var(--gray-900);
       margin-bottom: 6px;
     }
-    .step p {
-      font-size: 14px;
+    .step p { font-size: 14px; color: var(--gray-500); }
+
+    /* Example conversations */
+    .example {
+      background: var(--gray-50);
+      border: 1px solid var(--gray-200);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      margin-top: 12px;
+    }
+    .example + .example { margin-top: 10px; }
+    .example-label {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--orange);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+    .example blockquote {
+      border-left: 3px solid var(--gray-300);
+      padding-left: 14px;
+      margin: 6px 0;
+      color: var(--gray-700);
+      font-style: italic;
+    }
+    .example .flow {
       color: var(--gray-500);
+      font-size: 14px;
+      margin-top: 4px;
     }
 
     /* Notes callout */
@@ -256,6 +297,7 @@
       color: var(--gray-500);
       font-size: 14px;
     }
+    .footer p { margin-top: 6px; }
     .footer-links { margin-bottom: 12px; display: flex; gap: 24px; justify-content: center; flex-wrap: wrap; }
     .footer-links a { color: var(--gray-600); }
 
@@ -266,8 +308,10 @@
       .hero .tagline { font-size: 17px; }
       .hero-endpoint { font-size: 13px; padding: 10px 16px; word-break: break-all; }
       section h2 { font-size: 22px; }
-      .tool-grid { grid-template-columns: 1fr; }
+      .feature-grid { grid-template-columns: 1fr; }
       .header-links { gap: 12px; font-size: 13px; }
+      .tool-table { font-size: 14px; }
+      .tool-table td, .tool-table th { padding: 8px; }
     }
   </style>
 </head>
@@ -288,182 +332,243 @@
   <!-- Hero -->
   <section class="hero">
     <h1><span>Handwrytten</span> MCP Server</h1>
-    <p class="tagline">Send real, robot-penwritten greeting cards and notes directly from your AI assistant.</p>
+    <p class="tagline">An MCP server that lets AI assistants like Claude send real handwritten notes through Handwrytten &mdash; robots with real pens writing your messages on physical cards, mailed to your recipients.</p>
     <div class="hero-endpoint">https://mcp.handwrytten.com/mcp</div>
   </section>
 
   <!-- Content -->
   <div class="content">
 
-    <!-- What is this? -->
+    <!-- What can it do? -->
     <section>
-      <h2>What is this?</h2>
-      <p>
-        The <strong>Model Context Protocol (MCP)</strong> is an open standard that lets AI assistants
-        connect to external tools and services. This server implements MCP for
-        <a href="https://www.handwrytten.com">Handwrytten</a>, the leading platform for sending
-        real handwritten notes at scale using robots with real pens.
-      </p>
-      <p style="margin-top: 12px;">
-        Once connected, your AI assistant (Claude, ChatGPT, or any MCP-compatible client) can browse
-        card designs, compose personalized messages, manage your address book, and send physical
-        handwritten cards &mdash; all through natural conversation.
-      </p>
+      <h2>What can it do?</h2>
+      <p>What can't it do! Once connected, your AI assistant can:</p>
+      <div class="feature-grid">
+        <div class="feature-item"><strong>Send handwritten notes</strong> &mdash; single or bulk, with per-recipient customization</div>
+        <div class="feature-item"><strong>Browse cards and fonts</strong> &mdash; discover available stationery templates and handwriting styles</div>
+        <div class="feature-item"><strong>Manage addresses</strong> &mdash; save, update, and delete recipient and sender addresses</div>
+        <div class="feature-item"><strong>Create custom cards</strong> &mdash; upload images, add logos and text, design your own cards</div>
+        <div class="feature-item"><strong>Include gift cards and inserts</strong> &mdash; attach gift cards or marketing inserts to orders</div>
+        <div class="feature-item"><strong>Manage QR codes</strong> &mdash; create and attach QR codes to custom cards</div>
+        <div class="feature-item"><strong>Track orders</strong> &mdash; check order status, view history, get tracking info</div>
+      </div>
     </section>
 
-    <!-- Getting Started -->
+    <!-- Quick Start -->
     <section>
-      <h2>Getting Started</h2>
+      <h2>Quick Start</h2>
 
       <div class="panel">
-        <h3>Option 1: Claude.ai / Remote (OAuth)</h3>
-        <p>
-          The easiest way to get started. Add Handwrytten from the
-          <a href="https://modelcontextprotocol.io/directory">MCP Directory</a>
-          or connect directly using the endpoint URL:
-        </p>
-        <pre><code>https://mcp.handwrytten.com/mcp</code></pre>
-        <p style="margin-top: 12px;">
-          You will be prompted to sign in with your Handwrytten account via OAuth. No API key needed.
-        </p>
-      </div>
+        <h3>Option A: Remote Server (OAuth &mdash; recommended)</h3>
+        <p>The Handwrytten MCP server supports OAuth 2.0 authentication. Connect directly from Claude.ai, Claude Desktop, or Claude Code &mdash; no API key needed. You'll sign in with your Handwrytten account when prompted.</p>
 
-      <div class="panel">
-        <h3>Option 2: Claude Desktop / CLI (stdio)</h3>
-        <p>
-          For local use with Claude Desktop or Claude Code, install the server via npm and configure
-          it with your Handwrytten API key.
-        </p>
-        <ol style="margin-top: 12px;">
-          <li>Get your API key at <a href="https://www.handwrytten.com/api/">handwrytten.com/api</a></li>
-          <li>Add to your Claude Desktop config (<code>claude_desktop_config.json</code>):</li>
-        </ol>
+        <h4 style="margin-top: 20px; font-size: 15px; color: var(--gray-800);">Claude.ai</h4>
+        <p>Add Handwrytten from the MCP integrations menu &mdash; no installation required.</p>
+
+        <h4 style="margin-top: 16px; font-size: 15px; color: var(--gray-800);">Claude Desktop</h4>
+        <p>Add to your <code>claude_desktop_config.json</code>:</p>
         <pre><code>{
   "mcpServers": {
     "handwrytten": {
-      "command": "npx",
-      "args": ["-y", "handwrytten-mcp-server"],
+      "url": "https://mcp.handwrytten.com/mcp"
+    }
+  }
+}</code></pre>
+        <p style="margin-top: 8px; font-size: 14px; color: var(--gray-500);">Config file locations: <strong>macOS</strong> ~/Library/Application Support/Claude/claude_desktop_config.json &middot; <strong>Windows</strong> %APPDATA%\Claude\claude_desktop_config.json</p>
+
+        <h4 style="margin-top: 16px; font-size: 15px; color: var(--gray-800);">Claude Code</h4>
+        <pre><code>claude mcp add handwrytten --transport http https://mcp.handwrytten.com/mcp</code></pre>
+      </div>
+
+      <div class="panel">
+        <h3>Option B: Local Server (API Key)</h3>
+        <p>For development or self-hosted setups, you can run the server locally with an API key.</p>
+        <ol style="margin-top: 12px;">
+          <li>Sign up at <a href="https://www.handwrytten.com">handwrytten.com</a> and get your API key from the <a href="https://www.handwrytten.com/api/">API settings page</a>.</li>
+          <li>Install: <code>npm install -g @handwrytten/mcp-server</code></li>
+        </ol>
+
+        <h4 style="margin-top: 16px; font-size: 15px; color: var(--gray-800);">Claude Desktop (local)</h4>
+        <pre><code>{
+  "mcpServers": {
+    "handwrytten": {
+      "command": "handwrytten-mcp",
       "env": {
-        "HANDWRYTTEN_API_KEY": "your-api-key-here"
+        "HANDWRYTTEN_API_KEY": "your_api_key_here"
       }
     }
   }
 }</code></pre>
+
+        <h4 style="margin-top: 16px; font-size: 15px; color: var(--gray-800);">Claude Code (local)</h4>
+        <pre><code>claude mcp add handwrytten -- env HANDWRYTTEN_API_KEY=your_api_key_here handwrytten-mcp</code></pre>
+      </div>
+    </section>
+
+    <!-- Start Using It -->
+    <section>
+      <h2>Start Using It</h2>
+      <p>Just ask your AI assistant naturally:</p>
+      <div class="example">
+        <blockquote>"Send a thank-you card to Jane Doe at 123 Main St, Phoenix, AZ 85001"</blockquote>
+      </div>
+      <div class="example">
+        <blockquote>"What cards do you have available for birthdays?"</blockquote>
+      </div>
+      <div class="example">
+        <blockquote>"Send handwritten notes to everyone in this CSV file"</blockquote>
       </div>
     </section>
 
     <!-- Available Tools -->
     <section>
       <h2>Available Tools</h2>
-      <p>The server exposes 30+ tools organized by category. Your AI assistant discovers these automatically once connected.</p>
 
       <div class="tool-category">
-        <h3>Sending Notes</h3>
-        <div class="tool-grid">
-          <div class="tool-item"><code>send_order</code> <span class="desc">Send a handwritten card to a recipient</span></div>
-          <div class="tool-item"><code>get_order</code> <span class="desc">Look up an order by ID</span></div>
-          <div class="tool-item"><code>list_orders</code> <span class="desc">List recent orders with status</span></div>
-          <div class="tool-item"><code>list_past_baskets</code> <span class="desc">View previously sent basket batches</span></div>
-        </div>
+        <h3>Orders (Core)</h3>
+        <table class="tool-table">
+          <thead><tr><th>Tool</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>send_order</code></td><td>Send a handwritten note &mdash; the primary tool. Supports single and bulk sends.</td></tr>
+            <tr><td><code>get_order</code></td><td>Get order details including status and tracking</td></tr>
+            <tr><td><code>list_orders</code></td><td>List orders with pagination</td></tr>
+          </tbody>
+        </table>
       </div>
 
       <div class="tool-category">
-        <h3>Browsing Cards &amp; Fonts</h3>
-        <div class="tool-grid">
-          <div class="tool-item"><code>list_cards</code> <span class="desc">Browse available card designs</span></div>
-          <div class="tool-item"><code>list_card_categories</code> <span class="desc">List card categories (Birthday, Thank You, etc.)</span></div>
-          <div class="tool-item"><code>get_card_details</code> <span class="desc">Get full details for a specific card</span></div>
-          <div class="tool-item"><code>list_fonts</code> <span class="desc">List available handwriting fonts</span></div>
-          <div class="tool-item"><code>list_customizer_fonts</code> <span class="desc">List fonts for card cover customization</span></div>
-        </div>
+        <h3>Cards &amp; Fonts</h3>
+        <table class="tool-table">
+          <thead><tr><th>Tool</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>list_cards</code></td><td>Browse all available card/stationery templates</td></tr>
+            <tr><td><code>get_card</code></td><td>Get details of a specific card</td></tr>
+            <tr><td><code>list_card_categories</code></td><td>Get card categories (Thank You, Birthday, etc.)</td></tr>
+            <tr><td><code>list_fonts</code></td><td>Browse handwriting styles for orders</td></tr>
+            <tr><td><code>list_customizer_fonts</code></td><td>Browse printed fonts for custom card text zones</td></tr>
+          </tbody>
+        </table>
       </div>
 
       <div class="tool-category">
         <h3>Address Book</h3>
-        <div class="tool-grid">
-          <div class="tool-item"><code>list_recipients</code> <span class="desc">List saved recipient addresses</span></div>
-          <div class="tool-item"><code>add_recipient</code> <span class="desc">Add a new recipient</span></div>
-          <div class="tool-item"><code>update_recipient</code> <span class="desc">Update an existing recipient</span></div>
-          <div class="tool-item"><code>delete_recipient</code> <span class="desc">Remove a recipient</span></div>
-          <div class="tool-item"><code>list_senders</code> <span class="desc">List return addresses</span></div>
-          <div class="tool-item"><code>add_sender</code> <span class="desc">Add a new return address</span></div>
-          <div class="tool-item"><code>delete_sender</code> <span class="desc">Remove a return address</span></div>
-          <div class="tool-item"><code>list_countries</code> <span class="desc">List supported countries</span></div>
-          <div class="tool-item"><code>list_states</code> <span class="desc">List states/provinces for a country</span></div>
-        </div>
+        <table class="tool-table">
+          <thead><tr><th>Tool</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>list_recipients</code></td><td>List saved recipient addresses</td></tr>
+            <tr><td><code>add_recipient</code></td><td>Save a new recipient address</td></tr>
+            <tr><td><code>update_recipient</code></td><td>Update an existing recipient</td></tr>
+            <tr><td><code>delete_recipient</code></td><td>Delete recipient address(es)</td></tr>
+            <tr><td><code>list_senders</code></td><td>List saved sender (return) addresses</td></tr>
+            <tr><td><code>add_sender</code></td><td>Save a new sender address</td></tr>
+            <tr><td><code>delete_sender</code></td><td>Delete sender address(es)</td></tr>
+            <tr><td><code>list_countries</code></td><td>Get supported countries</td></tr>
+            <tr><td><code>list_states</code></td><td>Get states/provinces for a country</td></tr>
+          </tbody>
+        </table>
       </div>
 
       <div class="tool-category">
-        <h3>Extras</h3>
-        <div class="tool-grid">
-          <div class="tool-item"><code>list_gift_cards</code> <span class="desc">Browse gift card inserts</span></div>
-          <div class="tool-item"><code>list_inserts</code> <span class="desc">List available card inserts</span></div>
-          <div class="tool-item"><code>list_signatures</code> <span class="desc">List saved signature images</span></div>
-          <div class="tool-item"><code>calculate_targets</code> <span class="desc">Calculate targeting info for campaigns</span></div>
-          <div class="tool-item"><code>get_user</code> <span class="desc">Get current user account info</span></div>
-        </div>
+        <h3>Gift Cards &amp; Inserts</h3>
+        <table class="tool-table">
+          <thead><tr><th>Tool</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>list_gift_cards</code></td><td>Browse gift card products with denominations</td></tr>
+            <tr><td><code>list_inserts</code></td><td>Browse card inserts (business cards, flyers)</td></tr>
+          </tbody>
+        </table>
       </div>
 
       <div class="tool-category">
         <h3>Custom Cards</h3>
-        <div class="tool-grid">
-          <div class="tool-item"><code>list_custom_card_dimensions</code> <span class="desc">Available custom card sizes</span></div>
-          <div class="tool-item"><code>upload_custom_image</code> <span class="desc">Upload an image for a custom card</span></div>
-          <div class="tool-item"><code>create_custom_card</code> <span class="desc">Create a card from uploaded images</span></div>
-        </div>
+        <table class="tool-table">
+          <thead><tr><th>Tool</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>list_custom_card_dimensions</code></td><td>Get available card dimensions</td></tr>
+            <tr><td><code>upload_custom_image</code></td><td>Upload a cover or logo image</td></tr>
+            <tr><td><code>check_custom_image</code></td><td>Check image quality requirements</td></tr>
+            <tr><td><code>list_custom_images</code></td><td>List uploaded images</td></tr>
+            <tr><td><code>delete_custom_image</code></td><td>Delete an uploaded image</td></tr>
+            <tr><td><code>create_custom_card</code></td><td>Create a custom card design</td></tr>
+            <tr><td><code>get_custom_card</code></td><td>Get custom card details</td></tr>
+            <tr><td><code>delete_custom_card</code></td><td>Delete a custom card</td></tr>
+          </tbody>
+        </table>
       </div>
 
       <div class="tool-category">
         <h3>QR Codes</h3>
-        <div class="tool-grid">
-          <div class="tool-item"><code>create_qr_code</code> <span class="desc">Generate a QR code for cards</span></div>
-          <div class="tool-item"><code>list_qr_codes</code> <span class="desc">List your saved QR codes</span></div>
-          <div class="tool-item"><code>delete_qr_code</code> <span class="desc">Delete a QR code</span></div>
-          <div class="tool-item"><code>list_qr_code_frames</code> <span class="desc">List available QR code frame styles</span></div>
-        </div>
+        <table class="tool-table">
+          <thead><tr><th>Tool</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>list_qr_codes</code></td><td>List account QR codes</td></tr>
+            <tr><td><code>create_qr_code</code></td><td>Create a new QR code</td></tr>
+            <tr><td><code>delete_qr_code</code></td><td>Delete a QR code</td></tr>
+            <tr><td><code>list_qr_code_frames</code></td><td>Browse decorative QR code frames</td></tr>
+          </tbody>
+        </table>
       </div>
 
       <div class="tool-category">
-        <h3>Basket (Multi-Step Orders)</h3>
-        <div class="tool-grid">
-          <div class="tool-item"><code>basket_add_order</code> <span class="desc">Add an order to the basket</span></div>
-          <div class="tool-item"><code>basket_list</code> <span class="desc">View current basket contents</span></div>
-          <div class="tool-item"><code>basket_count</code> <span class="desc">Get number of items in basket</span></div>
-          <div class="tool-item"><code>basket_remove</code> <span class="desc">Remove an item from the basket</span></div>
-          <div class="tool-item"><code>basket_clear</code> <span class="desc">Clear all basket items</span></div>
-          <div class="tool-item"><code>basket_send</code> <span class="desc">Send all items in the basket</span></div>
-        </div>
+        <h3>Basket (Advanced)</h3>
+        <table class="tool-table">
+          <thead><tr><th>Tool</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>basket_add_order</code></td><td>Add an order to the basket</td></tr>
+            <tr><td><code>basket_send</code></td><td>Submit the basket for processing</td></tr>
+            <tr><td><code>basket_list</code></td><td>List items in the basket</td></tr>
+            <tr><td><code>basket_count</code></td><td>Count basket items</td></tr>
+            <tr><td><code>basket_remove</code></td><td>Remove a basket item</td></tr>
+            <tr><td><code>basket_clear</code></td><td>Clear the basket</td></tr>
+            <tr><td><code>list_past_baskets</code></td><td>List previously submitted baskets</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="tool-category">
+        <h3>Account</h3>
+        <table class="tool-table">
+          <thead><tr><th>Tool</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>get_user</code></td><td>Get account profile and credits balance</td></tr>
+            <tr><td><code>list_signatures</code></td><td>List saved handwriting signatures</td></tr>
+          </tbody>
+        </table>
       </div>
 
       <div class="tool-category">
         <h3>Interactive Apps</h3>
-        <div class="tool-grid">
-          <div class="tool-item"><code>Preview-Cards</code> <span class="desc">Visual card browser with 3D flip previews</span></div>
-          <div class="tool-item"><code>View-Basket</code> <span class="desc">Interactive basket summary with pricing</span></div>
-          <div class="tool-item"><code>Preview-Writing</code> <span class="desc">Live handwriting message preview</span></div>
-        </div>
+        <table class="tool-table">
+          <thead><tr><th>Tool</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>Preview-Cards</code></td><td>Visual card browser with 3D flip previews</td></tr>
+            <tr><td><code>View-Basket</code></td><td>Interactive basket summary with pricing</td></tr>
+            <tr><td><code>Preview-Writing</code></td><td>Live handwriting message preview</td></tr>
+          </tbody>
+        </table>
       </div>
     </section>
 
-    <!-- Typical Workflow -->
+    <!-- Example Conversations -->
     <section>
-      <h2>Typical Workflow</h2>
-      <div class="steps">
-        <div class="step">
-          <div class="step-num">1</div>
-          <h4>Browse Cards &amp; Fonts</h4>
-          <p>Ask your AI to show you available card designs and handwriting styles. Use the interactive card browser for a visual experience.</p>
-        </div>
-        <div class="step">
-          <div class="step-num">2</div>
-          <h4>Compose Your Message</h4>
-          <p>Tell your AI what you want to say. Preview how it will look in your chosen handwriting font before sending.</p>
-        </div>
-        <div class="step">
-          <div class="step-num">3</div>
-          <h4>Send Your Card</h4>
-          <p>Provide the recipient address and confirm. Your handwritten card will be mailed via USPS within 1-2 business days.</p>
-        </div>
+      <h2>Example Conversations</h2>
+
+      <div class="example">
+        <div class="example-label">Simple send</div>
+        <blockquote>You: "Send a thank-you note to John Smith at 456 Oak Ave, Tempe AZ 85281 from our company"</blockquote>
+        <p class="flow">Claude calls <code>list_cards</code> &rarr; <code>list_fonts</code> &rarr; <code>send_order</code></p>
+      </div>
+
+      <div class="example">
+        <div class="example-label">Bulk send</div>
+        <blockquote>You: "Send birthday cards to all these people: [list/CSV]"</blockquote>
+        <p class="flow">Claude calls <code>list_cards</code> &rarr; <code>list_fonts</code> &rarr; <code>send_order</code> with array of recipients</p>
+      </div>
+
+      <div class="example">
+        <div class="example-label">Custom card</div>
+        <blockquote>You: "Create a custom card with our company logo and send it to our top 5 clients"</blockquote>
+        <p class="flow">Claude calls <code>upload_custom_image</code> &rarr; <code>create_custom_card</code> &rarr; <code>list_recipients</code> &rarr; <code>send_order</code></p>
       </div>
     </section>
 
@@ -474,22 +579,40 @@
         <ul>
           <li><strong>Always browse before sending.</strong> Use <code>list_cards</code> and <code>list_fonts</code> to discover available options before placing an order.</li>
           <li><strong>Confirm before ordering.</strong> Sending a card costs money and triggers physical mail. Your AI assistant will confirm details before placing any order.</li>
-          <li><strong>Address requirements.</strong> Recipient addresses must include a valid street address, city, state, and ZIP code. PO Boxes are supported.</li>
-          <li><strong>Basket for bulk orders.</strong> Use the basket tools to queue up multiple cards and send them all at once.</li>
-          <li><strong>International shipping.</strong> Cards can be sent to many countries. Use <code>list_countries</code> to see supported destinations.</li>
+          <li><strong>Address requirements.</strong> Recipient addresses need firstName, lastName, street1, city, state, zip. Country defaults to US.</li>
+          <li><strong>Bulk sends.</strong> Pass an array of recipients to <code>send_order</code>. Each recipient can have per-recipient message and wishes overrides.</li>
+          <li><strong>Scheduling.</strong> Use the <code>dateSend</code> parameter (YYYY-MM-DD) to schedule a future send.</li>
+          <li><strong>Account balance.</strong> Call <code>get_user</code> to check your credits balance.</li>
         </ul>
       </div>
     </section>
 
-    <!-- Links -->
+    <!-- Development -->
     <section>
-      <h2>Resources</h2>
+      <h2>Development</h2>
+      <pre><code>git clone https://github.com/handwrytten/mcp-server
+cd mcp-server
+npm install
+npm run build</code></pre>
+      <p style="margin-top: 16px;">Test locally in stdio mode (API key auth):</p>
+      <pre><code>HANDWRYTTEN_API_KEY=your_key node dist/index.js</code></pre>
+    </section>
+
+    <!-- Built On -->
+    <section>
+      <h2>Built On</h2>
       <ul>
-        <li><a href="https://www.handwrytten.com">Handwrytten Website</a> &mdash; Create an account and manage your cards</li>
-        <li><a href="https://www.handwrytten.com/api/">API Documentation</a> &mdash; Get your API key and explore the REST API</li>
-        <li><a href="https://github.com/handwrytten/mcp-server">GitHub Repository</a> &mdash; Source code, issues, and contributions</li>
-        <li><a href="https://modelcontextprotocol.io">Model Context Protocol</a> &mdash; Learn more about MCP</li>
-        <li><a href="mailto:mcp@handwrytten.com">mcp@handwrytten.com</a> &mdash; Support and questions</li>
+        <li><a href="https://www.npmjs.com/package/handwrytten">Handwrytten TypeScript SDK</a> &mdash; the official SDK this server wraps</li>
+        <li><a href="https://www.npmjs.com/package/@modelcontextprotocol/sdk">Model Context Protocol SDK</a> &mdash; the MCP framework</li>
+      </ul>
+    </section>
+
+    <!-- Privacy & Support -->
+    <section>
+      <h2>Privacy &amp; Support</h2>
+      <ul>
+        <li><strong>Privacy Policy:</strong> <a href="https://www.handwrytten.com/privacy-policy">handwrytten.com/privacy-policy</a></li>
+        <li><strong>Support:</strong> <a href="https://www.handwrytten.com/contact">handwrytten.com/contact</a> or email <a href="mailto:mcp@handwrytten.com">mcp@handwrytten.com</a></li>
       </ul>
     </section>
 

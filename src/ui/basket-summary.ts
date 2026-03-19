@@ -14,10 +14,15 @@ import "./basket-summary.css";
 // ---------------------------------------------------------------------------
 
 interface Address {
-  name: string;
+  name?: string;
+  firstName?: string;
+  lastName?: string;
   business_name?: string;
-  address_line_1: string;
+  company?: string;
+  address_line_1?: string;
   address_line_2?: string;
+  street1?: string;
+  street2?: string;
   city: string;
   state: string;
   zip: string;
@@ -171,12 +176,17 @@ function formatPrice(amount: number | undefined | null): string {
 function formatAddress(addr?: Address): string {
   if (!addr) return "—";
   const parts: string[] = [];
-  if (addr.name) parts.push(`<span class="address-block-name">${escapeHtml(addr.name)}</span>`);
-  if (addr.business_name) parts.push(escapeHtml(addr.business_name));
-  if (addr.address_line_1) parts.push(escapeHtml(addr.address_line_1));
-  if (addr.address_line_2) parts.push(escapeHtml(addr.address_line_2));
+  const name = addr.name || [addr.firstName, addr.lastName].filter(Boolean).join(" ");
+  if (name) parts.push(`<span class="address-block-name">${escapeHtml(name)}</span>`);
+  const biz = addr.business_name || addr.company;
+  if (biz) parts.push(escapeHtml(biz));
+  const line1 = addr.address_line_1 || addr.street1;
+  const line2 = addr.address_line_2 || addr.street2;
+  if (line1) parts.push(escapeHtml(line1));
+  if (line2) parts.push(escapeHtml(line2));
   const cityLine = [addr.city, addr.state].filter(Boolean).join(", ");
   if (cityLine) parts.push(escapeHtml(cityLine) + (addr.zip ? " " + escapeHtml(addr.zip) : ""));
+  if (addr.country && addr.country !== "US" && addr.country !== "United States") parts.push(escapeHtml(addr.country));
   return parts.join("<br>");
 }
 
@@ -208,7 +218,7 @@ function renderBasketItem(item: BasketItem): HTMLElement {
   const coverUrl = cdnUrl(item.card_cover || item.card?.cover);
   const ps = item.price_structure;
   const message = item.message || "";
-  const truncatedMsg = message.length > 150 ? message.slice(0, 150) + "..." : message;
+  const wishes = item.wishes || "";
 
   // Badges
   let badges = "";
@@ -251,7 +261,8 @@ function renderBasketItem(item: BasketItem): HTMLElement {
           ${item.denomination?.name ? `<div class="meta-row"><span class="meta-label">Gift:</span><span class="meta-value">${escapeHtml(item.denomination.name)} (${formatPrice(item.denomination.price)})</span></div>` : ""}
           ${item.insert?.name ? `<div class="meta-row"><span class="meta-label">Insert:</span><span class="meta-value">${escapeHtml(item.insert.name)}</span></div>` : ""}
         </div>
-        ${message ? `<div class="order-message">${escapeHtml(truncatedMsg)}</div>` : ""}
+        ${message ? `<div class="order-message"><div class="order-message-label">Message:</div>${escapeHtml(message)}</div>` : ""}
+        ${wishes ? `<div class="order-message"><div class="order-message-label">Wishes:</div>${escapeHtml(wishes)}</div>` : ""}
       </div>
     </div>
     <div class="order-addresses">

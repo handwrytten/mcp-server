@@ -180,21 +180,15 @@ body {
   line-height: 1.5;
   white-space: pre-wrap;
   word-break: break-word;
-  max-height: 80px;
-  overflow: hidden;
-  position: relative;
 }
 
-.order-message.expanded {
-  max-height: none;
-}
-
-.order-message-toggle {
-  display: inline-block;
-  font-size: 12px;
-  color: #ee6723;
-  cursor: pointer;
-  margin-top: 4px;
+.order-message-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #999;
+  margin-bottom: 4px;
 }
 
 /* --- Address Row --- */

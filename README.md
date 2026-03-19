@@ -220,7 +220,7 @@ node dist/index.js
 ## Privacy & Support
 
 - **Privacy Policy**: [handwrytten.com/privacy-policy](https://www.handwrytten.com/privacy-policy)
-- **Support**: [handwrytten.com/contact](https://www.handwrytten.com/contact) or email dev@handwrytten.com
+- **Support**: [handwrytten.com/contact](https://www.handwrytten.com/contact) or email mcp@handwrytten.com
 
 ## License
 

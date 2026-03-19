@@ -22,6 +22,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { createMcpExpressApp } from "@modelcontextprotocol/sdk/server/express.js";
+import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import { Handwrytten } from "handwrytten";
 
 import { registerTools } from "./tools.js";
@@ -158,7 +159,11 @@ async function runHttp(): Promise<void> {
 
     // Extract Bearer token (or use dev API key)
     const token = extractBearerToken(req.headers.authorization);
-    if (!token && !DEV_API_KEY) {
+    const isInit = isInitializeRequest(req.body);
+
+    // Allow initialize through without auth (capability discovery).
+    // All other methods require a valid token.
+    if (!token && !DEV_API_KEY && !isInit) {
       const mcpServerUrl = oauthConfig.mcpServerUrl;
       res
         .status(401)
@@ -177,10 +182,12 @@ async function runHttp(): Promise<void> {
       return;
     }
 
-    // Create a fresh client, server, and transport for this request
+    // Create a fresh client, server, and transport for this request.
+    // For unauthenticated initialize, use a dummy client — the initialize
+    // response only contains server name/version/capabilities, no API calls.
     const client = token
       ? new Handwrytten({ accessToken: token })
-      : new Handwrytten(DEV_API_KEY!);
+      : new Handwrytten(DEV_API_KEY || "unauthenticated");
     const server = createMcpServer(client, MCP_SERVER_URL);
 
     const transport = new StreamableHTTPServerTransport({

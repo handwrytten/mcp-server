@@ -146,17 +146,24 @@ async function loadFrontImage(card: Card, el: HTMLElement): Promise<void> {
 }
 
 async function loadSecondaryImages(card: Card, el: HTMLElement): Promise<void> {
+  const isFlat = card.orientation === "F";
   const insideFace = el.querySelector(".inside-face") as HTMLElement;
   const innerMaskImg = el.querySelector(".inner-mask > div") as HTMLElement;
   const backFace = el.querySelector(".back-face") as HTMLElement;
   if (insideFace?.dataset.loaded && backFace?.dataset.loaded) return;
 
+  // For flat cards, the API stores the reverse side under "inside" not "back".
+  // The webapp uses detailed_images.inside as the flat card's back image.
+  const backImageSource = isFlat
+    ? card.detailed_images?.inside
+    : card.detailed_images?.back;
+
   const [insideDataUri, backDataUri] = await Promise.all([
-    insideFace && !insideFace.dataset.loaded
+    !isFlat && insideFace && !insideFace.dataset.loaded
       ? fetchImageWithFallback(card.detailed_images?.inside)
       : Promise.resolve(""),
     backFace && !backFace.dataset.loaded
-      ? fetchImageWithFallback(card.detailed_images?.back)
+      ? fetchImageWithFallback(backImageSource)
       : Promise.resolve(""),
   ]);
 

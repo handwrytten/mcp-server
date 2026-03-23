@@ -362,8 +362,20 @@
         <h3>Option A: Remote Server (OAuth &mdash; recommended)</h3>
         <p>The Handwrytten MCP server supports OAuth 2.0 authentication. Connect directly from Claude.ai, Claude Desktop, or Claude Code &mdash; no API key needed. You'll sign in with your Handwrytten account when prompted.</p>
 
-        <h4 style="margin-top: 20px; font-size: 15px; color: var(--gray-800);">Claude.ai</h4>
-        <p>Add Handwrytten from the MCP integrations menu &mdash; no installation required.</p>
+        <div style="background: var(--orange-light); border: 2px solid var(--orange); border-radius: 10px; padding: 20px 24px; margin-top: 20px;">
+          <h4 style="font-size: 16px; color: var(--orange-dark); margin-bottom: 12px;">Claude.ai &mdash; Easiest Setup!</h4>
+          <ol style="margin: 0; padding-left: 20px;">
+            <li style="margin-bottom: 8px;"><strong>Step 1:</strong> Click here &rarr; <a href="https://claude.ai/settings/connectors?modal=add-custom-connector" style="font-weight: 700;">Add Custom Connector</a></li>
+            <li><strong>Step 2:</strong> Enter these values:
+              <div style="margin-top: 8px; margin-left: 4px;">
+                <div style="margin-bottom: 4px;"><strong>Name:</strong> <code>Handwrytten</code></div>
+                <div><strong>Server URL:</strong> <code>https://mcp.handwrytten.com/mcp</code></div>
+              </div>
+            </li>
+          </ol>
+          <p style="margin-top: 12px; font-size: 14px; color: var(--gray-600);">That's it &mdash; no installation, no config files, no API key needed!</p>
+          <p style="margin-top: 8px; font-size: 13px; color: var(--gray-500);"><strong>Note:</strong> This works for personal Claude accounts. If you're part of a work organization, your admin will need to add Handwrytten to your organization's available connectors before you can use it.</p>
+        </div>
 
         <h4 style="margin-top: 16px; font-size: 15px; color: var(--gray-800);">Claude Desktop</h4>
         <p>Add to your <code>claude_desktop_config.json</code>:</p>

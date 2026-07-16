@@ -57,10 +57,13 @@ function populateFontSelect(fonts: FontInfo[], selectedId: string | number): voi
   }
 }
 
-// Pull the PNG out of the MCP image content block and build a data URI.
-// The image travels as a native image block (not embedded in the JSON text),
-// so it's self-contained in the result — no server round-trip to load it.
+// Build the preview image data URI from the tool result. The PNG travels in
+// _meta (a UI-only channel the host forwards to the app but keeps out of the
+// model's context), so it's self-contained — no server round-trip to load it.
+// Falls back to an image content block if present, for resilience.
 function imageDataUri(result: any): string | null {
+  const metaPng = result?._meta?.["handwrytten/previewPng"];
+  if (metaPng) return `data:image/png;base64,${metaPng}`;
   const img = result?.content?.find((c: any) => c.type === "image");
   if (img && "data" in img && img.data) {
     return `data:${img.mimeType || "image/png"};base64,${img.data}`;

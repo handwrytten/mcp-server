@@ -456,28 +456,29 @@ export function registerAppTools(
           renderError = "No font URL found for selected font";
         }
 
-        // Return the PNG as a native MCP image content block: the host renders
-        // it inline directly (no code-execution decode), and it's self-contained
-        // in the result — no second HTTP request, so it doesn't depend on the
-        // in-memory previewCache surviving across App Runner instances. The
-        // separate text block carries only the small metadata the app iframe
-        // needs for its font dropdown and re-render calls (no image data).
-        const content: CallToolResult["content"] = [];
-        if (pngBase64) {
-          content.push({ type: "image", data: pngBase64, mimeType: "image/png" });
-        }
-        content.push({
-          type: "text",
-          text: JSON.stringify({
-            renderError,
-            selectedFont: { id: selectedFont.id, label: selectedFont.label },
-            fonts: fontsMinimal,
-            message,
-            wishes: wishes || "",
-            inkColor: inkColor || "#0040ac",
-          }),
-        });
-        return { content };
+        // Pass the PNG to the app iframe via _meta (a UI-only channel that the
+        // host forwards to the app but does NOT put into the model's context).
+        // The model-facing content stays tiny (metadata only, no image), so it
+        // never tries to decode an image and there's no "too big" payload. The
+        // image is self-contained in the result — no second HTTP request, so it
+        // doesn't depend on the in-memory previewCache surviving across App
+        // Runner instances.
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                renderError,
+                selectedFont: { id: selectedFont.id, label: selectedFont.label },
+                fonts: fontsMinimal,
+                message,
+                wishes: wishes || "",
+                inkColor: inkColor || "#0040ac",
+              }),
+            },
+          ],
+          _meta: pngBase64 ? { "handwrytten/previewPng": pngBase64 } : undefined,
+        };
       } catch (e: any) {
         return {
           content: [{ type: "text", text: `Error: ${e.message}` }],
@@ -587,18 +588,18 @@ export function registerAppTools(
           }
         }
 
-        const content: CallToolResult["content"] = [];
-        if (pngBase64) {
-          content.push({ type: "image", data: pngBase64, mimeType: "image/png" });
-        }
-        content.push({
-          type: "text",
-          text: JSON.stringify({
-            renderError,
-            selectedFont: { id: selectedFont.id, label: selectedFont.label },
-          }),
-        });
-        return { content };
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({
+                renderError,
+                selectedFont: { id: selectedFont.id, label: selectedFont.label },
+              }),
+            },
+          ],
+          _meta: pngBase64 ? { "handwrytten/previewPng": pngBase64 } : undefined,
+        };
       } catch (e: any) {
         return {
           content: [{ type: "text" as const, text: `Error: ${e.message}` }],

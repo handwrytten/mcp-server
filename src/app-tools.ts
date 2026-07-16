@@ -456,18 +456,19 @@ export function registerAppTools(
           renderError = "No font URL found for selected font";
         }
 
-        // Pass the PNG to the app iframe via _meta (a UI-only channel that the
-        // host forwards to the app but does NOT put into the model's context).
-        // The model-facing content stays tiny (metadata only, no image), so it
-        // never tries to decode an image and there's no "too big" payload. The
-        // image is self-contained in the result — no second HTTP request, so it
-        // doesn't depend on the in-memory previewCache surviving across App
-        // Runner instances.
+        // Deliver the (quantized) PNG through BOTH channels so it renders on
+        // every host: _meta (Claude web forwards this to the app and keeps it
+        // out of the model's context — confirmed working) and base64 in the
+        // content text (the universal channel that worked historically in
+        // Claude Desktop, which does not forward custom _meta). The iframe
+        // prefers _meta and falls back to content text. Quantization keeps it
+        // ~28KB, under the host's inline size limit.
         return {
           content: [
             {
               type: "text",
               text: JSON.stringify({
+                pngBase64,
                 renderError,
                 selectedFont: { id: selectedFont.id, label: selectedFont.label },
                 fonts: fontsMinimal,
@@ -593,6 +594,7 @@ export function registerAppTools(
             {
               type: "text" as const,
               text: JSON.stringify({
+                pngBase64,
                 renderError,
                 selectedFont: { id: selectedFont.id, label: selectedFont.label },
               }),

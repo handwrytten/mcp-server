@@ -23,15 +23,31 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import opentype from "opentype.js";
 import { Resvg } from "@resvg/resvg-js";
+import UPNG from "upng-js";
 import { renderCardToSvgServer } from "./server-postcard-renderer.js";
 
-/** Convert an SVG string to a PNG Buffer. */
+/**
+ * Convert an SVG string to a PNG Buffer.
+ *
+ * The preview is ink-colored line art on a flat background, so it only needs
+ * a small palette. We render at full resolution, then quantize to a 32-color
+ * indexed PNG via upng-js. This is visually lossless for this content but
+ * cuts the encoded size ~60% (≈100KB → ≈37KB base64), which keeps the
+ * data-URI small enough for Claude Desktop to render the preview inline.
+ * (JPEG is a poor fit here — DCT artifacts on the sharp text edges make it
+ * larger than PNG, not smaller.)
+ */
+const PREVIEW_COLORS = 32;
+
 function svgToPng(svg: string): Buffer {
-  const resvg = new Resvg(svg, {
+  const rendered = new Resvg(svg, {
     fitTo: { mode: "width" as const, value: 800 },
-  });
-  const pngData = resvg.render();
-  return Buffer.from(pngData.asPng());
+  }).render();
+  const { width, height, pixels } = rendered;
+  // upng-js expects an ArrayBuffer of RGBA pixels; cnum > 0 quantizes.
+  const rgba = new Uint8Array(pixels);
+  const png = UPNG.encode([rgba.buffer], width, height, PREVIEW_COLORS);
+  return Buffer.from(png);
 }
 
 // ---------------------------------------------------------------------------

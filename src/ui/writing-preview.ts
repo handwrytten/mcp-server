@@ -11,7 +11,6 @@ interface FontInfo {
 }
 
 interface WritingData {
-  pngBase64?: string;
   renderError?: string;
   selectedFont: FontInfo;
   fonts?: FontInfo[];
@@ -58,15 +57,17 @@ function populateFontSelect(fonts: FontInfo[], selectedId: string | number): voi
   }
 }
 
-// Build the preview image data URI from the tool result. The PNG is delivered
-// through two channels for cross-host compatibility: prefer _meta (Claude web
-// forwards it and keeps it out of the model context); fall back to the base64
-// carried in the content-text JSON (the universal channel that works in Claude
-// Desktop, which does not forward custom _meta).
-function imageDataUri(result: any, data: WritingData): string | null {
+// Build the preview image data URI from the tool result. The PNG travels in
+// _meta (a UI-only channel the host forwards to the app but keeps out of the
+// model's context), so it's self-contained — no server round-trip to load it.
+// Falls back to an image content block if present, for resilience.
+function imageDataUri(result: any): string | null {
   const metaPng = result?._meta?.["handwrytten/previewPng"];
   if (metaPng) return `data:image/png;base64,${metaPng}`;
-  if (data?.pngBase64) return `data:image/png;base64,${data.pngBase64}`;
+  const img = result?.content?.find((c: any) => c.type === "image");
+  if (img && "data" in img && img.data) {
+    return `data:${img.mimeType || "image/png"};base64,${img.data}`;
+  }
   return null;
 }
 
@@ -91,7 +92,7 @@ app.ontoolresult = async (result) => {
     if (data.fonts) {
       populateFontSelect(data.fonts, data.selectedFont?.id);
     }
-    renderPreview(imageDataUri(result, data), data);
+    renderPreview(imageDataUri(result), data);
   } catch (e: any) {
     previewEl.innerHTML = `<div class="loading">Error: ${e.message}</div>`;
   }
@@ -126,7 +127,7 @@ fontSelect.addEventListener("change", async () => {
     data.inkColor = state.inkColor;
     state = data;
 
-    renderPreview(imageDataUri(result, data), data);
+    renderPreview(imageDataUri(result), data);
   } catch (e: any) {
     previewEl.innerHTML = `<div class="loading">Error: ${e.message}</div>`;
   }

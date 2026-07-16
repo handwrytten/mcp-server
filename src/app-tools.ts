@@ -416,7 +416,7 @@ export function registerAppTools(
         };
 
         let renderError = "";
-        let previewUrl = "";
+        let pngBase64 = "";
         const fontsMinimal = fonts.map((f: any) => ({ id: f.id, label: f.label }));
 
         if (selectedFont.mainFontUrl) {
@@ -444,11 +444,7 @@ export function registerAppTools(
                 },
                 font
               );
-              const png = svgToPng(svg);
-              // Serve the PNG via /preview/:id instead of embedding base64 in
-              // the tool result. The app iframe loads it by URL; the model only
-              // ever sees the short URL, so it never tries to decode the image.
-              previewUrl = `${(serverUrl || "").replace(/\/+$/, "")}/preview/${cachePreview(png)}`;
+              pngBase64 = svgToPng(svg).toString("base64");
             } else {
               renderError = `Font fetch failed: HTTP ${fontRes.status}`;
             }
@@ -460,22 +456,28 @@ export function registerAppTools(
           renderError = "No font URL found for selected font";
         }
 
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify({
-                previewUrl,
-                renderError,
-                selectedFont: { id: selectedFont.id, label: selectedFont.label },
-                fonts: fontsMinimal,
-                message,
-                wishes: wishes || "",
-                inkColor: inkColor || "#0040ac",
-              }),
-            },
-          ],
-        };
+        // Return the PNG as a native MCP image content block: the host renders
+        // it inline directly (no code-execution decode), and it's self-contained
+        // in the result — no second HTTP request, so it doesn't depend on the
+        // in-memory previewCache surviving across App Runner instances. The
+        // separate text block carries only the small metadata the app iframe
+        // needs for its font dropdown and re-render calls (no image data).
+        const content: CallToolResult["content"] = [];
+        if (pngBase64) {
+          content.push({ type: "image", data: pngBase64, mimeType: "image/png" });
+        }
+        content.push({
+          type: "text",
+          text: JSON.stringify({
+            renderError,
+            selectedFont: { id: selectedFont.id, label: selectedFont.label },
+            fonts: fontsMinimal,
+            message,
+            wishes: wishes || "",
+            inkColor: inkColor || "#0040ac",
+          }),
+        });
+        return { content };
       } catch (e: any) {
         return {
           content: [{ type: "text", text: `Error: ${e.message}` }],
@@ -546,7 +548,7 @@ export function registerAppTools(
           ],
         };
 
-        let previewUrl = "";
+        let pngBase64 = "";
         let renderError = "";
 
         if (selectedFont.mainFontUrl) {
@@ -571,23 +573,25 @@ export function registerAppTools(
                 },
                 font
               );
-              previewUrl = `${(serverUrl || "").replace(/\/+$/, "")}/preview/${cachePreview(svgToPng(svg))}`;
+              pngBase64 = svgToPng(svg).toString("base64");
             }
           } catch (fontErr: any) {
             renderError = fontErr.message;
           }
         }
 
-        return {
-          content: [{
-            type: "text" as const,
-            text: JSON.stringify({
-              previewUrl,
-              renderError,
-              selectedFont: { id: selectedFont.id, label: selectedFont.label },
-            }),
-          }],
-        };
+        const content: CallToolResult["content"] = [];
+        if (pngBase64) {
+          content.push({ type: "image", data: pngBase64, mimeType: "image/png" });
+        }
+        content.push({
+          type: "text",
+          text: JSON.stringify({
+            renderError,
+            selectedFont: { id: selectedFont.id, label: selectedFont.label },
+          }),
+        });
+        return { content };
       } catch (e: any) {
         return {
           content: [{ type: "text" as const, text: `Error: ${e.message}` }],

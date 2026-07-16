@@ -11,7 +11,6 @@ interface FontInfo {
 }
 
 interface WritingData {
-  previewUrl: string;
   renderError?: string;
   selectedFont: FontInfo;
   fonts?: FontInfo[];
@@ -58,9 +57,20 @@ function populateFontSelect(fonts: FontInfo[], selectedId: string | number): voi
   }
 }
 
-function renderPreview(data: WritingData): void {
-  if (data.previewUrl) {
-    previewEl.innerHTML = `<img src="${data.previewUrl}" alt="Writing Preview" style="width:100%; display:block; border-radius:4px;" />`;
+// Pull the PNG out of the MCP image content block and build a data URI.
+// The image travels as a native image block (not embedded in the JSON text),
+// so it's self-contained in the result — no server round-trip to load it.
+function imageDataUri(result: any): string | null {
+  const img = result?.content?.find((c: any) => c.type === "image");
+  if (img && "data" in img && img.data) {
+    return `data:${img.mimeType || "image/png"};base64,${img.data}`;
+  }
+  return null;
+}
+
+function renderPreview(dataUri: string | null, data: WritingData): void {
+  if (dataUri) {
+    previewEl.innerHTML = `<img src="${dataUri}" alt="Writing Preview" style="width:100%; display:block; border-radius:4px;" />`;
   } else if (data.renderError) {
     previewEl.innerHTML = `<div class="loading">Error: ${data.renderError}</div>`;
   } else {
@@ -79,7 +89,7 @@ app.ontoolresult = async (result) => {
     if (data.fonts) {
       populateFontSelect(data.fonts, data.selectedFont?.id);
     }
-    renderPreview(data);
+    renderPreview(imageDataUri(result), data);
   } catch (e: any) {
     previewEl.innerHTML = `<div class="loading">Error: ${e.message}</div>`;
   }
@@ -114,7 +124,7 @@ fontSelect.addEventListener("change", async () => {
     data.inkColor = state.inkColor;
     state = data;
 
-    renderPreview(data);
+    renderPreview(imageDataUri(result), data);
   } catch (e: any) {
     previewEl.innerHTML = `<div class="loading">Error: ${e.message}</div>`;
   }

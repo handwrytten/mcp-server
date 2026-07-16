@@ -416,7 +416,7 @@ export function registerAppTools(
         };
 
         let renderError = "";
-        let pngBase64 = "";
+        let previewUrl = "";
         const fontsMinimal = fonts.map((f: any) => ({ id: f.id, label: f.label }));
 
         if (selectedFont.mainFontUrl) {
@@ -445,7 +445,10 @@ export function registerAppTools(
                 font
               );
               const png = svgToPng(svg);
-              pngBase64 = png.toString("base64");
+              // Serve the PNG via /preview/:id instead of embedding base64 in
+              // the tool result. The app iframe loads it by URL; the model only
+              // ever sees the short URL, so it never tries to decode the image.
+              previewUrl = `${(serverUrl || "").replace(/\/+$/, "")}/preview/${cachePreview(png)}`;
             } else {
               renderError = `Font fetch failed: HTTP ${fontRes.status}`;
             }
@@ -462,7 +465,7 @@ export function registerAppTools(
             {
               type: "text",
               text: JSON.stringify({
-                pngBase64,
+                previewUrl,
                 renderError,
                 selectedFont: { id: selectedFont.id, label: selectedFont.label },
                 fonts: fontsMinimal,
@@ -543,7 +546,7 @@ export function registerAppTools(
           ],
         };
 
-        let pngBase64 = "";
+        let previewUrl = "";
         let renderError = "";
 
         if (selectedFont.mainFontUrl) {
@@ -568,7 +571,7 @@ export function registerAppTools(
                 },
                 font
               );
-              pngBase64 = svgToPng(svg).toString("base64");
+              previewUrl = `${(serverUrl || "").replace(/\/+$/, "")}/preview/${cachePreview(svgToPng(svg))}`;
             }
           } catch (fontErr: any) {
             renderError = fontErr.message;
@@ -579,7 +582,7 @@ export function registerAppTools(
           content: [{
             type: "text" as const,
             text: JSON.stringify({
-              pngBase64,
+              previewUrl,
               renderError,
               selectedFont: { id: selectedFont.id, label: selectedFont.label },
             }),

@@ -487,18 +487,25 @@ export function registerAppTools(
     }
   );
 
-  // Tool for the writing preview app to re-render with a different font
-  server.tool(
+  // Tool for the writing preview app to re-render with a different font.
+  // visibility: ["app"] hides it from the model (so the model can only pick
+  // the Preview-Writing app tool, which spawns the iframe) while keeping it
+  // callable by the iframe via app.callServerTool.
+  server.registerTool(
     "preview_writing",
-    "[READ-ONLY] Re-render a handwriting preview with different parameters. Used internally by the writing preview app — not intended for direct use. Returns a PNG image as base64.",
     {
-      fontId: z.string().describe("Font ID or label (from list_fonts)"),
-      message: z.string().describe("The message text to render in handwriting"),
-      wishes: z.string().optional().describe("Optional closing text below the message (e.g. 'Best,\\nThe Team')"),
-      inkColor: z.string().optional().describe("Ink color as hex string (e.g. '#0040ac' for blue, '#000000' for black)"),
-      cardId: z.string().optional().describe("Card template ID for accurate dimensions. Omit to use default card size."),
+      description:
+        "[READ-ONLY] Re-render a handwriting preview with different parameters. Used internally by the writing preview app — not intended for direct use. Returns a PNG image.",
+      inputSchema: {
+        fontId: z.string().describe("Font ID or label (from list_fonts)"),
+        message: z.string().describe("The message text to render in handwriting"),
+        wishes: z.string().optional().describe("Optional closing text below the message (e.g. 'Best,\\nThe Team')"),
+        inkColor: z.string().optional().describe("Ink color as hex string (e.g. '#0040ac' for blue, '#000000' for black)"),
+        cardId: z.string().optional().describe("Card template ID for accurate dimensions. Omit to use default card size."),
+      },
+      annotations: { title: "Render Writing Preview", readOnlyHint: true, destructiveHint: false },
+      _meta: { ui: { visibility: ["app"] } },
     },
-    { title: "Render Writing Preview", readOnlyHint: true, destructiveHint: false },
     async ({ fontId, message, wishes, inkColor, cardId }) => {
       try {
         const [fontsRaw, cardData] = await Promise.all([

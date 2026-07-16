@@ -609,22 +609,12 @@ export function registerAppTools(
     }
   );
 
-  // Writing preview resource — serves the Vite-built HTML.
-  // CSP MUST be declared here (on the resource), not on the tool: Claude
-  // Desktop ignores tool-level _meta.ui.csp and only reads CSP from the UI
-  // resource, so without this the iframe falls back to a restrictive default
-  // that blocks the base64 preview image. resourceDomains maps to img-src etc.;
-  // "data:" is required for the data-URI image to render. Declared in both the
-  // resources/read content item (preferred) and the resource metadata
-  // (resources/list fallback).
-  const writingPreviewCsp = {
-    resourceDomains: ["data:", "https://*.handwrytten.com"],
-  };
+  // Writing preview resource — serves the Vite-built HTML
   registerAppResource(
     server,
     writingPreviewUri,
     writingPreviewUri,
-    { mimeType: RESOURCE_MIME_TYPE, _meta: { ui: { csp: writingPreviewCsp } } },
+    { mimeType: RESOURCE_MIME_TYPE },
     async (): Promise<ReadResourceResult> => {
       const html = await fs.readFile(
         path.join(DIST_DIR, "writing-preview.html"),
@@ -632,12 +622,7 @@ export function registerAppTools(
       );
       return {
         contents: [
-          {
-            uri: writingPreviewUri,
-            mimeType: RESOURCE_MIME_TYPE,
-            text: html,
-            _meta: { ui: { csp: writingPreviewCsp } },
-          },
+          { uri: writingPreviewUri, mimeType: RESOURCE_MIME_TYPE, text: html },
         ],
       };
     }

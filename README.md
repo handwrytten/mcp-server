@@ -49,7 +49,28 @@ Config file locations:
 claude mcp add handwrytten --transport http https://mcp.handwrytten.com/mcp
 ```
 
-### Option B: Local Server (API Key)
+### Option B: Remote Server (API Key — third-party clients & gateways)
+
+The hosted server also accepts your Handwrytten API key directly — the recommended path for MCP gateways (such as [Runlayer](https://www.runlayer.com)), custom agents, and other integrations where an interactive OAuth sign-in isn't practical.
+
+1. Get your API key from the [API settings page](https://www.handwrytten.com/api/).
+2. Point your client at `https://mcp.handwrytten.com/mcp` and send the key on every request using either header format:
+
+```
+# Preferred: dedicated API key header
+X-API-Key: your_api_key_here
+
+# Also accepted: raw Authorization header (no "Bearer" prefix)
+Authorization: your_api_key_here
+```
+
+Note: `Authorization: Bearer <token>` is reserved for OAuth access tokens — don't send your API key with a `Bearer` prefix.
+
+**Runlayer example:** add a remote MCP server with URL `https://mcp.handwrytten.com/mcp` (HTTP transport) and configure a custom header `X-API-Key` with your Handwrytten API key (or a secret reference, e.g. 1Password).
+
+**Security tip:** API keys are long-lived credentials. Store them in a secrets manager and regenerate your key from the API settings page if it's ever exposed.
+
+### Option C: Local Server (API Key)
 
 For development or self-hosted setups, you can run the server locally with an API key.
 

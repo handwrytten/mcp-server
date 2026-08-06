@@ -8,7 +8,10 @@
  * Supports two transport modes:
  *   - **stdio** (legacy): Uses HANDWRYTTEN_API_KEY for local Claude Desktop / CLI.
  *   - **http**  (new):    Uses OAuth2 Bearer tokens for remote deployment
- *                          and Claude Marketplace integration.
+ *                          and Claude Marketplace integration. Also accepts
+ *                          Handwrytten API keys (X-API-Key header or raw
+ *                          Authorization header) for third-party clients and
+ *                          MCP gateways such as Runlayer.
  *
  * HTTP mode is **sessionless** — each request creates its own MCP server
  * and transport, with no server-side session tracking. This makes the
@@ -30,14 +33,14 @@ import { Handwrytten } from "handwrytten";
 import { registerTools } from "./tools.js";
 import { registerAppTools, previewCache } from "./app-tools.js";
 import { registerPrompts } from "./prompts.js";
-import { setupAuthRoutes, extractBearerToken, type OAuthConfig } from "./auth.js";
+import { setupAuthRoutes, extractBearerToken, extractApiKey, type OAuthConfig } from "./auth.js";
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
 const SERVER_NAME = "handwrytten";
-const SERVER_VERSION = "1.3.0";
+const SERVER_VERSION = "1.4.0";
 const MCP_INSTRUCTIONS =
   "Handwrytten MCP server — send real handwritten notes at scale using robots with real pens. " +
   "Use list_cards and list_fonts first to discover available options, then send_order to mail a note.";
@@ -124,7 +127,7 @@ async function runHttp(): Promise<void> {
   app.use((_req, res, next) => {
     res.set("Access-Control-Allow-Origin", "*");
     res.set("Access-Control-Allow-Methods", "GET, HEAD, POST, DELETE, OPTIONS");
-    res.set("Access-Control-Allow-Headers", "Content-Type, Authorization, Mcp-Session-Id");
+    res.set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key, Mcp-Session-Id");
     res.set("Access-Control-Expose-Headers", "Mcp-Session-Id, WWW-Authenticate");
     if (_req.method === "OPTIONS") {
       res.status(204).end();
@@ -157,17 +160,21 @@ async function runHttp(): Promise<void> {
   app.post("/mcp", async (req: Request, res: Response) => {
     console.error("POST /mcp", {
       hasAuth: !!req.headers.authorization,
+      hasApiKey: !!req.headers["x-api-key"],
       bodyMethod: req.body?.method,
       bodyId: req.body?.id,
     });
 
-    // Extract Bearer token (or use dev API key)
+    // Extract credentials: OAuth Bearer token, or a Handwrytten API key
+    // (X-API-Key header / raw Authorization header) for third-party clients
+    // and MCP gateways such as Runlayer. Dev API key is the last fallback.
     const token = extractBearerToken(req.headers.authorization);
+    const apiKey = token ? null : extractApiKey(req.headers["x-api-key"], req.headers.authorization);
     const isInit = isInitializeRequest(req.body);
 
     // Allow initialize through without auth (capability discovery).
-    // All other methods require a valid token.
-    if (!token && !DEV_API_KEY && !isInit) {
+    // All other methods require a valid token or API key.
+    if (!token && !apiKey && !DEV_API_KEY && !isInit) {
       const mcpServerUrl = oauthConfig.mcpServerUrl;
       res
         .status(401)
@@ -187,11 +194,16 @@ async function runHttp(): Promise<void> {
     }
 
     // Create a fresh client, server, and transport for this request.
+    // OAuth tokens are sent to the backend as `Bearer <token>`; API keys are
+    // sent as a raw Authorization header (the SDK picks the format based on
+    // which credential the constructor receives).
     // For unauthenticated initialize, use a dummy client — the initialize
     // response only contains server name/version/capabilities, no API calls.
     const client = token
       ? new Handwrytten({ accessToken: token })
-      : new Handwrytten(DEV_API_KEY || "unauthenticated");
+      : apiKey
+        ? new Handwrytten(apiKey)
+        : new Handwrytten(DEV_API_KEY || "unauthenticated");
     const server = createMcpServer(client, MCP_SERVER_URL);
 
     const transport = new StreamableHTTPServerTransport({

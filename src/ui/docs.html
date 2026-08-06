@@ -393,7 +393,33 @@
       </div>
 
       <div class="panel">
-        <h3>Option B: Local Server (API Key)</h3>
+        <h3>Option B: Remote Server (API Key &mdash; third-party clients &amp; gateways)</h3>
+        <p>Prefer a static credential over OAuth? The hosted server also accepts your Handwrytten API key directly. This is the recommended path for MCP gateways (such as <a href="https://www.runlayer.com">Runlayer</a>), custom agents, and other third-party integrations where an interactive OAuth sign-in isn't practical.</p>
+        <ol style="margin-top: 12px;">
+          <li>Get your API key from the <a href="https://www.handwrytten.com/api/">API settings page</a> (sign up at <a href="https://www.handwrytten.com">handwrytten.com</a> if you don't have an account).</li>
+          <li>Point your client at <code>https://mcp.handwrytten.com/mcp</code> and send the key on every request using either header format:</li>
+        </ol>
+        <pre><code># Preferred: dedicated API key header
+X-API-Key: your_api_key_here
+
+# Also accepted: raw Authorization header (no "Bearer" prefix)
+Authorization: your_api_key_here</code></pre>
+        <p style="margin-top: 12px; font-size: 14px; color: var(--gray-600);">Note: <code>Authorization: Bearer &lt;token&gt;</code> is reserved for OAuth access tokens &mdash; don't send your API key with a <code>Bearer</code> prefix.</p>
+
+        <h4 style="margin-top: 16px; font-size: 15px; color: var(--gray-800);">Example: Runlayer</h4>
+        <p>In Runlayer, add a remote MCP server with URL <code>https://mcp.handwrytten.com/mcp</code> (HTTP transport) and configure a custom header <code>X-API-Key</code> with your Handwrytten API key (or a secret reference, e.g. 1Password).</p>
+
+        <h4 style="margin-top: 16px; font-size: 15px; color: var(--gray-800);">Example: curl</h4>
+        <pre><code>curl -X POST https://mcp.handwrytten.com/mcp \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -H "X-API-Key: your_api_key_here" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'</code></pre>
+        <p style="margin-top: 12px; font-size: 14px; color: var(--gray-500);"><strong>Security tip:</strong> API keys are long-lived credentials. Store them in a secrets manager and regenerate your key from the API settings page if it's ever exposed.</p>
+      </div>
+
+      <div class="panel">
+        <h3>Option C: Local Server (API Key)</h3>
         <p>For development or self-hosted setups, you can run the server locally with an API key.</p>
         <ol style="margin-top: 12px;">
           <li>Sign up at <a href="https://www.handwrytten.com">handwrytten.com</a> and get your API key from the <a href="https://www.handwrytten.com/api/">API settings page</a>.</li>

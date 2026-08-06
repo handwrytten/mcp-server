@@ -240,3 +240,34 @@ export function extractBearerToken(authHeader: string | undefined): string | nul
   }
   return null;
 }
+
+// ---------------------------------------------------------------------------
+// API key extraction
+// ---------------------------------------------------------------------------
+
+/**
+ * Extracts a Handwrytten API key for third-party clients and MCP gateways
+ * (e.g. Runlayer) that authenticate with a static key instead of OAuth.
+ *
+ * Accepted forms, in priority order:
+ *   1. `X-API-Key: <key>` header
+ *   2. Raw `Authorization: <key>` header with no auth scheme — the same
+ *      convention the Handwrytten SDK uses for API key auth. Values with a
+ *      scheme prefix (e.g. "Bearer x", "Basic x") are ignored here.
+ */
+export function extractApiKey(
+  apiKeyHeader: string | string[] | undefined,
+  authHeader: string | undefined
+): string | null {
+  if (typeof apiKeyHeader === "string" && apiKeyHeader.trim()) {
+    return apiKeyHeader.trim();
+  }
+  if (authHeader) {
+    const value = authHeader.trim();
+    // API keys never contain spaces; scheme-formatted credentials always do.
+    if (value && !value.includes(" ")) {
+      return value;
+    }
+  }
+  return null;
+}

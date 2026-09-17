@@ -87,7 +87,7 @@ const itemCountEl = document.getElementById("item-count")!;
 const checkoutSection = document.getElementById("checkout-section")!;
 const actionsEl = document.getElementById("actions")!;
 const refreshBtn = document.getElementById("refresh-btn")!;
-const clearBtn = document.getElementById("clear-btn")!;
+const clearBtn = document.getElementById("clear-btn") as HTMLButtonElement;
 const sendBtn = document.getElementById("send-btn") as HTMLButtonElement;
 
 // Checkout fields
@@ -387,7 +387,7 @@ async function loadBasket() {
       arguments: {},
     });
 
-    const text = result.content?.find((c: any) => c.type === "text")?.text;
+    const text = result.content?.find((c) => c.type === "text")?.text;
     if (text) {
       const data = JSON.parse(text);
       renderBasket(data);
@@ -484,7 +484,7 @@ sendBtn.addEventListener("click", async () => {
 
 app.ontoolresult = (result: CallToolResult) => {
   try {
-    const text = result.content?.find((c: any) => c.type === "text")?.text;
+    const text = result.content?.find((c) => c.type === "text")?.text;
     if (!text) return;
     const data = JSON.parse(text);
     renderBasket(data);

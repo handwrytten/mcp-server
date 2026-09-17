@@ -9,6 +9,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { Handwrytten } from "handwrytten";
+import { registerAuthenticatedTool, toolError } from "./tool-auth.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -21,24 +22,17 @@ function ok(content: unknown): { content: { type: "text"; text: string }[] } {
   };
 }
 
-/** Wrap an error tool result. */
-function err(message: string): { content: { type: "text"; text: string }[]; isError: true } {
-  return {
-    content: [{ type: "text" as const, text: `Error: ${message}` }],
-    isError: true,
-  };
-}
-
 // ---------------------------------------------------------------------------
 // Tool registration
 // ---------------------------------------------------------------------------
 
-export function registerTools(server: McpServer, client: Handwrytten): void {
+export function registerTools(server: McpServer, client: Handwrytten, oauthServerUrl?: string): void {
+  const err = (error: unknown) => toolError(error, oauthServerUrl);
   // ═══════════════════════════════════════════════════════════════════════════
   // ACCOUNT
   // ═══════════════════════════════════════════════════════════════════════════
 
-  server.tool(
+  registerAuthenticatedTool(server,
     "get_user",
     "[READ-ONLY] Get the authenticated user's Handwrytten profile. Returns: id, name, email, credits balance, test_mode flag, subscription status.",
     {},
@@ -48,12 +42,12 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
         const user = await client.auth.getUser();
         return ok(user);
       } catch (e: any) {
-        return err(e.message);
+        return err(e);
       }
     }
   );
 
-  server.tool(
+  registerAuthenticatedTool(server,
     "list_signatures",
     "[READ-ONLY] List the user's saved handwriting signature images. Returns array of {id, name, preview_url}. Use the id as signatureId when placing orders via send_order or basket_add_order.",
     {},
@@ -63,7 +57,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
         const sigs = await client.auth.listSignatures();
         return ok(sigs);
       } catch (e: any) {
-        return err(e.message);
+        return err(e);
       }
     }
   );
@@ -72,7 +66,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
   // CARDS
   // ═══════════════════════════════════════════════════════════════════════════
 
-  server.tool(
+  registerAuthenticatedTool(server,
     "list_cards",
     "[READ-ONLY] Browse available card/stationery templates. Returns paginated array of {id, title, imageUrl, category, categoryId, orientation}. " +
       "Use categoryId=27 for 'My Custom Cards'. Call list_card_categories first to discover all category IDs. " +
@@ -171,12 +165,12 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
           pagination: { page: pg, perPage: pp, total, totalPages },
         });
       } catch (e: any) {
-        return err(e.message);
+        return err(e);
       }
     }
   );
 
-  server.tool(
+  registerAuthenticatedTool(server,
     "get_card",
     "[READ-ONLY] Get full details of a specific card template. Returns: id, name, cover image, orientation (P=portrait, L=landscape, F=flat), dimensions, pricing, detailed_images (front/inside/back).",
     { cardId: z.string().describe("Card template ID (numeric string, from list_cards results)") },
@@ -186,12 +180,12 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
         const card = await client.cards.get(cardId);
         return ok(card);
       } catch (e: any) {
-        return err(e.message);
+        return err(e);
       }
     }
   );
 
-  server.tool(
+  registerAuthenticatedTool(server,
     "list_card_categories",
     "[READ-ONLY] List all card categories (e.g. 'Thank You', 'Birthday', 'Holiday', 'My Custom Cards'). Returns array of {id, name, slug}. Pass the returned id as categoryId to list_cards to filter.",
     {},
@@ -206,7 +200,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
         }));
         return ok(categories);
       } catch (e: any) {
-        return err(e.message);
+        return err(e);
       }
     }
   );
@@ -215,7 +209,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
   // FONTS
   // ═══════════════════════════════════════════════════════════════════════════
 
-  server.tool(
+  registerAuthenticatedTool(server,
     "list_fonts",
     "[READ-ONLY] List available handwriting font styles for the message body of orders. Returns array of {id, name, label, previewUrl}. Pass the id or label as the 'font' parameter to send_order or basket_add_order. These are robot-handwritten fonts, not printed fonts.",
     {},
@@ -225,12 +219,12 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
         const fonts = await client.fonts.list();
         return ok(fonts);
       } catch (e: any) {
-        return err(e.message);
+        return err(e);
       }
     }
   );
 
-  server.tool(
+  registerAuthenticatedTool(server,
     "list_customizer_fonts",
     "[READ-ONLY] List printed/typeset fonts for custom card text zones (header, footer, main, back). Returns array of {id, name, label}. These are DIFFERENT from handwriting fonts — use these only with create_custom_card zone parameters (headerFontId, mainFontId, footerFontId, backFontId).",
     {},
@@ -240,7 +234,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
         const fonts = await client.fonts.listForCustomizer();
         return ok(fonts);
       } catch (e: any) {
-        return err(e.message);
+        return err(e);
       }
     }
   );
@@ -249,7 +243,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
   // GIFT CARDS
   // ═══════════════════════════════════════════════════════════════════════════
 
-  server.tool(
+  registerAuthenticatedTool(server,
     "list_gift_cards",
     "[READ-ONLY] List available physical gift card products and their price denominations. Returns array of {id, name, denominations: [{id, price}]}. Pass a denomination id as denominationId to send_order or basket_add_order to include a gift card in the envelope.",
     {},
@@ -259,7 +253,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
         const gcs = await client.giftCards.list();
         return ok(gcs);
       } catch (e: any) {
-        return err(e.message);
+        return err(e);
       }
     }
   );
@@ -268,7 +262,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
   // INSERTS
   // ═══════════════════════════════════════════════════════════════════════════
 
-  server.tool(
+  registerAuthenticatedTool(server,
     "list_inserts",
     "[READ-ONLY] List available card inserts (business cards, flyers, brochures) that can be physically included in the envelope with a card. Returns array of {id, name, description, image}. Pass the id as insertId to send_order or basket_add_order.",
     {
@@ -283,7 +277,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
         const inserts = await client.inserts.list({ includeHistorical });
         return ok(inserts);
       } catch (e: any) {
-        return err(e.message);
+        return err(e);
       }
     }
   );
@@ -292,7 +286,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
   // QR CODES
   // ═══════════════════════════════════════════════════════════════════════════
 
-  server.tool(
+  registerAuthenticatedTool(server,
     "list_qr_codes",
     "[READ-ONLY] List QR codes created on this account. Returns array of {id, name, url, scan_count}. QR codes can be placed on custom cards via create_custom_card.",
     {},
@@ -302,12 +296,12 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
         const qrs = await client.qrCodes.list();
         return ok(qrs);
       } catch (e: any) {
-        return err(e.message);
+        return err(e);
       }
     }
   );
 
-  server.tool(
+  registerAuthenticatedTool(server,
     "create_qr_code",
     "[CREATES DATA] Create a new QR code for use on custom cards. Returns the created QR code with its id. Use the id with create_custom_card's qrCodeId parameter.",
     {
@@ -322,12 +316,12 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
         const qr = await client.qrCodes.create(params);
         return ok(qr);
       } catch (e: any) {
-        return err(e.message);
+        return err(e);
       }
     }
   );
 
-  server.tool(
+  registerAuthenticatedTool(server,
     "delete_qr_code",
     "[DESTRUCTIVE — permanently deletes QR code] Permanently delete a QR code. This cannot be undone. Any custom cards using this QR code will no longer display it.",
     { qrCodeId: z.number().describe("ID of the QR code to delete") },
@@ -337,12 +331,12 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
         const result = await client.qrCodes.delete(qrCodeId);
         return ok(result);
       } catch (e: any) {
-        return err(e.message);
+        return err(e);
       }
     }
   );
 
-  server.tool(
+  registerAuthenticatedTool(server,
     "list_qr_code_frames",
     "[READ-ONLY] List decorative border frames available for QR codes on custom cards. Returns array of {id, name, preview_url}. Pass the id as qrCodeFrameId to create_custom_card.",
     {},
@@ -352,7 +346,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
         const frames = await client.qrCodes.frames();
         return ok(frames);
       } catch (e: any) {
-        return err(e.message);
+        return err(e);
       }
     }
   );
@@ -361,7 +355,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
   // ADDRESS BOOK
   // ═══════════════════════════════════════════════════════════════════════════
 
-  server.tool(
+  registerAuthenticatedTool(server,
     "list_recipients",
     "[READ-ONLY] List saved recipient (TO) addresses from the address book. Returns array of {id, firstName, lastName, street1, city, state, zip, company, birthday, anniversary}. Pass the id as 'recipient' to send_order or in the addressIds array to basket_add_order.",
     {},
@@ -371,12 +365,12 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
         const recipients = await client.addressBook.listRecipients();
         return ok(recipients);
       } catch (e: any) {
-        return err(e.message);
+        return err(e);
       }
     }
   );
 
-  server.tool(
+  registerAuthenticatedTool(server,
     "add_recipient",
     "[CREATES DATA] Save a new recipient (TO) address to the address book. Returns {addressId}. You must save an address first before you can send a card to it — use the returned addressId as 'recipient' in send_order or in addressIds for basket_add_order.",
     {
@@ -398,12 +392,12 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
         const id = await client.addressBook.addRecipient(params);
         return ok({ addressId: id, message: "Recipient saved successfully" });
       } catch (e: any) {
-        return err(e.message);
+        return err(e);
       }
     }
   );
 
-  server.tool(
+  registerAuthenticatedTool(server,
     "update_recipient",
     "[MODIFIES DATA] Update an existing saved recipient address. Only pass the fields you want to change — omitted fields remain unchanged. Returns {addressId}.",
     {
@@ -426,12 +420,12 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
         const id = await client.addressBook.updateRecipient(params);
         return ok({ addressId: id, message: "Recipient updated successfully" });
       } catch (e: any) {
-        return err(e.message);
+        return err(e);
       }
     }
   );
 
-  server.tool(
+  registerAuthenticatedTool(server,
     "delete_recipient",
     "[DESTRUCTIVE — deletes address data] Permanently delete one or more recipient addresses from the address book. Provide either a single addressId OR an array of addressIds, not both. This cannot be undone.",
     {
@@ -447,12 +441,12 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
         const result = await client.addressBook.deleteRecipient(params);
         return ok(result);
       } catch (e: any) {
-        return err(e.message);
+        return err(e);
       }
     }
   );
 
-  server.tool(
+  registerAuthenticatedTool(server,
     "list_senders",
     "[READ-ONLY] List saved sender (FROM / return) addresses from the address book. Returns array of {id, firstName, lastName, street1, city, state, zip, company, isDefault}. Pass the id as 'sender' to send_order or as returnAddressId to basket_add_order.",
     {},
@@ -462,12 +456,12 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
         const senders = await client.addressBook.listSenders();
         return ok(senders);
       } catch (e: any) {
-        return err(e.message);
+        return err(e);
       }
     }
   );
 
-  server.tool(
+  registerAuthenticatedTool(server,
     "add_sender",
     "[CREATES DATA] Save a new sender (FROM / return) address to the address book. Returns {addressId}. Use the returned addressId as 'sender' in send_order or as returnAddressId in basket_add_order.",
     {
@@ -488,12 +482,12 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
         const id = await client.addressBook.addSender(params);
         return ok({ addressId: id, message: "Sender saved successfully" });
       } catch (e: any) {
-        return err(e.message);
+        return err(e);
       }
     }
   );
 
-  server.tool(
+  registerAuthenticatedTool(server,
     "delete_sender",
     "[DESTRUCTIVE — deletes address data] Permanently delete one or more sender (return) addresses. Provide either a single addressId OR an array of addressIds, not both. This cannot be undone.",
     {
@@ -509,12 +503,12 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
         const result = await client.addressBook.deleteSender(params);
         return ok(result);
       } catch (e: any) {
-        return err(e.message);
+        return err(e);
       }
     }
   );
 
-  server.tool(
+  registerAuthenticatedTool(server,
     "list_countries",
     "[READ-ONLY] List all countries Handwrytten can mail to. Returns array of {id, code, name}. Use the code as countryId when adding addresses.",
     {},
@@ -524,12 +518,12 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
         const countries = await client.addressBook.countries();
         return ok(countries);
       } catch (e: any) {
-        return err(e.message);
+        return err(e);
       }
     }
   );
 
-  server.tool(
+  registerAuthenticatedTool(server,
     "list_states",
     "[READ-ONLY] List states/provinces for a given country. Returns array of {id, code, name}. Use the code as the 'state' parameter when adding addresses.",
     {
@@ -544,7 +538,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
         const states = await client.addressBook.states(countryCode);
         return ok(states);
       } catch (e: any) {
-        return err(e.message);
+        return err(e);
       }
     }
   );
@@ -553,7 +547,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
   // ORDERS — The main event!
   // ═══════════════════════════════════════════════════════════════════════════
 
-  server.tool(
+  registerAuthenticatedTool(server,
     "send_order",
     "[SENDS REAL MAIL — charges the user's account and mails a physical card] Always confirm card, message, recipient, and sender details with the user before calling. " +
       "Send a real handwritten note via Handwrytten. This is the primary tool — it places " +
@@ -603,12 +597,12 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
         const result = await client.orders.send(params as any);
         return ok(result);
       } catch (e: any) {
-        return err(e.message);
+        return err(e);
       }
     }
   );
 
-  server.tool(
+  registerAuthenticatedTool(server,
     "get_order",
     "[READ-ONLY] Get full details of a specific order including status, tracking info, card details, message, addresses, and pricing. Returns: id, status, tracking_link, card, message, address_from, address_to, price_structure, date_send, date_complete.",
     { orderId: z.string().describe("The order ID (numeric string, from send_order response or list_orders results)") },
@@ -618,12 +612,12 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
         const order = await client.orders.get(orderId);
         return ok(order);
       } catch (e: any) {
-        return err(e.message);
+        return err(e);
       }
     }
   );
 
-  server.tool(
+  registerAuthenticatedTool(server,
     "list_orders",
     "[READ-ONLY] List past orders with pagination. Returns paginated array of orders with id, status, card name, recipient, send date. Default: page 1.",
     {
@@ -636,12 +630,12 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
         const orders = await client.orders.list(params);
         return ok(orders);
       } catch (e: any) {
-        return err(e.message);
+        return err(e);
       }
     }
   );
 
-  server.tool(
+  registerAuthenticatedTool(server,
     "list_past_baskets",
     "[READ-ONLY] List previously submitted order baskets (groups of orders placed together). Returns paginated array of baskets with id, date, item count, total.",
     {
@@ -653,7 +647,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
         const baskets = await client.orders.listPastBaskets(params);
         return ok(baskets);
       } catch (e: any) {
-        return err(e.message);
+        return err(e);
       }
     }
   );
@@ -662,7 +656,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
   // BASKET (advanced multi-step workflow)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  server.tool(
+  registerAuthenticatedTool(server,
     "basket_add_order",
     "[CREATES DATA] Add an order to the basket (multi-step workflow). Use send_order instead for single-step sends. " +
       "Recipients and senders must be saved address IDs (use add_recipient / add_sender first).",
@@ -687,12 +681,12 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
         const result = await client.basket.addOrder(params as any);
         return ok(result);
       } catch (e: any) {
-        return err(e.message);
+        return err(e);
       }
     }
   );
 
-  server.tool(
+  registerAuthenticatedTool(server,
     "basket_send",
     "[SENDS REAL MAIL — charges the user's account and mails ALL orders in the basket] Always confirm with the user before calling. Submits every order in the basket for physical fulfillment. Cards will be handwritten and mailed. This charges the user's payment method. Returns: basket_id, items, price_structure.",
     {
@@ -705,12 +699,12 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
         const result = await client.basket.send(params);
         return ok(result);
       } catch (e: any) {
-        return err(e.message);
+        return err(e);
       }
     }
   );
 
-  server.tool(
+  registerAuthenticatedTool(server,
     "basket_list",
     "[READ-ONLY] List all orders currently in the basket (not yet submitted). Returns array of basket items with card, message, addresses, pricing. Use View-Basket app tool for a richer visual display.",
     {},
@@ -720,12 +714,12 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
         const items = await client.basket.list();
         return ok(items);
       } catch (e: any) {
-        return err(e.message);
+        return err(e);
       }
     }
   );
 
-  server.tool(
+  registerAuthenticatedTool(server,
     "basket_count",
     "[READ-ONLY] Get the count of orders currently in the basket. Returns {count: number}. Quick check without fetching full item details.",
     {},
@@ -735,12 +729,12 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
         const count = await client.basket.count();
         return ok({ count });
       } catch (e: any) {
-        return err(e.message);
+        return err(e);
       }
     }
   );
 
-  server.tool(
+  registerAuthenticatedTool(server,
     "basket_remove",
     "[DESTRUCTIVE — removes order from basket] Remove a single order from the basket. The order is discarded and not recoverable. Confirm with the user before calling.",
     { basketId: z.number().describe("Basket item ID to remove (from basket_list results)") },
@@ -750,12 +744,12 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
         const result = await client.basket.remove(basketId);
         return ok(result);
       } catch (e: any) {
-        return err(e.message);
+        return err(e);
       }
     }
   );
 
-  server.tool(
+  registerAuthenticatedTool(server,
     "basket_clear",
     "[DESTRUCTIVE — removes ALL orders from basket] Permanently removes every order from the basket. None of the orders will be sent. Always confirm with the user before calling — this cannot be undone.",
     {},
@@ -765,7 +759,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
         const result = await client.basket.clear();
         return ok(result);
       } catch (e: any) {
-        return err(e.message);
+        return err(e);
       }
     }
   );
@@ -774,7 +768,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
   // CUSTOM CARDS
   // ═══════════════════════════════════════════════════════════════════════════
 
-  server.tool(
+  registerAuthenticatedTool(server,
     "list_custom_card_dimensions",
     "[READ-ONLY] List available card sizes/formats for custom card designs. Returns array of {id, format (flat/folded), orientation (portrait/landscape), width, height}. Pass the id as dimensionId to create_custom_card.",
     {
@@ -793,12 +787,12 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
         const dims = await client.customCards.dimensions(params);
         return ok(dims);
       } catch (e: any) {
-        return err(e.message);
+        return err(e);
       }
     }
   );
 
-  server.tool(
+  registerAuthenticatedTool(server,
     "upload_custom_image",
     "[CREATES DATA] Upload an image from a URL for use in custom card designs. The image is downloaded and stored by Handwrytten. Returns {id, url, width, height}. Use imageType='cover' for full-bleed card faces, imageType='logo' for logos on the writing side. Pass the returned id to create_custom_card (as coverId, headerLogoId, mainLogoId, footerLogoId, or backLogoId).",
     {
@@ -813,12 +807,12 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
         const img = await client.customCards.uploadImage(params);
         return ok(img);
       } catch (e: any) {
-        return err(e.message);
+        return err(e);
       }
     }
   );
 
-  server.tool(
+  registerAuthenticatedTool(server,
     "check_custom_image",
     "[READ-ONLY] Validate that an uploaded image meets print quality requirements (DPI, dimensions) for a specific card size. Returns {valid: boolean, issues: string[]}. Call this after upload_custom_image to verify before using in a design.",
     {
@@ -831,12 +825,12 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
         const result = await client.customCards.checkImage(imageId, cardId);
         return ok(result);
       } catch (e: any) {
-        return err(e.message);
+        return err(e);
       }
     }
   );
 
-  server.tool(
+  registerAuthenticatedTool(server,
     "list_custom_images",
     "[READ-ONLY] List all images previously uploaded to this account for custom card designs. Returns array of {id, url, imageType, width, height}. Filter by type: 'cover' (full-bleed faces) or 'logo' (writing-side logos).",
     {
@@ -851,12 +845,12 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
         const images = await client.customCards.listImages(imageType);
         return ok(images);
       } catch (e: any) {
-        return err(e.message);
+        return err(e);
       }
     }
   );
 
-  server.tool(
+  registerAuthenticatedTool(server,
     "delete_custom_image",
     "[DESTRUCTIVE — permanently deletes uploaded image] Permanently delete an uploaded custom image. Any custom card designs still referencing this image may display incorrectly. This cannot be undone.",
     { imageId: z.number().describe("Image ID to delete") },
@@ -866,12 +860,12 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
         const result = await client.customCards.deleteImage(imageId);
         return ok(result);
       } catch (e: any) {
-        return err(e.message);
+        return err(e);
       }
     }
   );
 
-  server.tool(
+  registerAuthenticatedTool(server,
     "create_custom_card",
     "[CREATES DATA] Create a custom card design from uploaded images and text zones.\n\n" +
       "IMPORTANT — Each writing-side zone (header/main/footer) and the back side has a 'type' field:\n" +
@@ -972,12 +966,12 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
         const card = await client.customCards.create(params as any);
         return ok(card);
       } catch (e: any) {
-        return err(e.message);
+        return err(e);
       }
     }
   );
 
-  server.tool(
+  registerAuthenticatedTool(server,
     "get_custom_card",
     "[READ-ONLY] Get full details of a custom card design including dimensions, cover images, text zones, logos, and QR code placement. Returns all configuration needed to understand or duplicate the design.",
     { cardId: z.number().describe("Custom card ID") },
@@ -987,12 +981,12 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
         const card = await client.customCards.get(cardId);
         return ok(card);
       } catch (e: any) {
-        return err(e.message);
+        return err(e);
       }
     }
   );
 
-  server.tool(
+  registerAuthenticatedTool(server,
     "delete_custom_card",
     "[DESTRUCTIVE — permanently deletes custom card design] Permanently delete a custom card design. Orders already placed with this card are unaffected, but new orders cannot use it. This cannot be undone.",
     { cardId: z.number().describe("Custom card ID to delete") },
@@ -1002,7 +996,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
         const result = await client.customCards.delete(cardId);
         return ok(result);
       } catch (e: any) {
-        return err(e.message);
+        return err(e);
       }
     }
   );
@@ -1011,7 +1005,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
   // PROSPECTING (disabled — not useful in MCP context)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  // server.tool(
+  // registerAuthenticatedTool(server,
   //   "calculate_targets",
   //   "[READ-ONLY] Estimate the number of prospecting targets (businesses/residents) in a geographic area. Returns target counts by category and estimated mailing costs. Use this to preview before creating a prospecting campaign.",
   //   {
@@ -1027,7 +1021,7 @@ export function registerTools(server: McpServer, client: Handwrytten): void {
   //       const result = await client.prospecting.calculateTargets(params);
   //       return ok(result);
   //     } catch (e: any) {
-  //       return err(e.message);
+  //       return err(e);
   //     }
   //   }
   // );

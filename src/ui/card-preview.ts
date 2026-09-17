@@ -398,7 +398,7 @@ async function fetchCards(
       },
     });
 
-    const text = result.content?.find((c: any) => c.type === "text")?.text;
+    const text = result.content?.find((c) => c.type === "text")?.text;
     if (text) {
       const data = JSON.parse(text);
       renderCards(data.cards, append);
@@ -443,7 +443,7 @@ loadMoreBtn.addEventListener("click", () => {
 
 app.ontoolresult = (result: CallToolResult) => {
   try {
-    const text = result.content?.find((c: any) => c.type === "text")?.text;
+    const text = result.content?.find((c) => c.type === "text")?.text;
     if (!text) return;
 
     const data = JSON.parse(text);

@@ -1,7 +1,7 @@
 /**
  * OAuth2 proxy routes for the Handwrytten MCP server.
  *
- * The MCP server acts as a proxy between the MCP client (Claude) and
+ * The MCP server acts as a proxy between pre-registered OAuth clients and
  * the Handwrytten backend OAuth endpoints. This keeps the MCP server
  * as the single point of contact for the MCP client.
  *
@@ -13,19 +13,14 @@
  */
 
 import type { Express, Request, Response } from "express";
+import { OAUTH_SCOPES } from "./tool-auth.js";
+import { safeErrorInfo } from "./runtime-config.js";
 
 // ---------------------------------------------------------------------------
 // Scopes supported by the Handwrytten OAuth implementation
 // ---------------------------------------------------------------------------
 
-const SCOPES = [
-  "read:profile",
-  "send:cards",
-  "read:orders",
-  "read:contacts",
-  "write:contacts",
-  "read:balance",
-];
+const SCOPES = OAUTH_SCOPES;
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -36,10 +31,11 @@ export interface OAuthConfig {
   mcpServerUrl: string;
   /** Handwrytten API base URL (e.g. "https://api.handwrytten.com") */
   handwryttenApiUrl: string;
-  /** OAuth client ID for this MCP server */
-  oauthClientId: string;
-  /** OAuth client secret for this MCP server */
-  oauthClientSecret: string;
+  /** Route prefix selects the integration; it is not proof of caller identity. */
+  routePrefix?: "/chatgpt";
+  /** Existing backend client used by the automatic registration compatibility flow. */
+  oauthClientId?: string;
+  oauthClientSecret?: string;
 }
 
 export interface TokenInfo {
@@ -57,6 +53,9 @@ export type OnTokenIssuedCallback = (info: TokenInfo) => void;
 
 export function setupAuthRoutes(app: Express, config: OAuthConfig, onTokenIssued?: OnTokenIssuedCallback): void {
   const backendOAuthBase = `${config.handwryttenApiUrl}/api/v1/oauth`;
+  const prefix = config.routePrefix || "";
+  const issuer = `${config.mcpServerUrl}${prefix}`;
+  const canRegister = Boolean(config.oauthClientId && config.oauthClientSecret);
 
   // -----------------------------------------------------------------------
   // GET /.well-known/oauth-authorization-server
@@ -68,10 +67,10 @@ export function setupAuthRoutes(app: Express, config: OAuthConfig, onTokenIssued
   // Tells MCP clients where to find the authorization server metadata.
   // -----------------------------------------------------------------------
 
-  app.get("/.well-known/oauth-protected-resource", (_req: Request, res: Response) => {
+  app.get([`${prefix}/.well-known/oauth-protected-resource`, `/.well-known/oauth-protected-resource${prefix}/mcp`], (_req: Request, res: Response) => {
     res.json({
-      resource: `${config.mcpServerUrl}/mcp`,
-      authorization_servers: [config.mcpServerUrl],
+      resource: `${issuer}/mcp`,
+      authorization_servers: [issuer],
       scopes_supported: SCOPES,
       bearer_methods_supported: ["header"],
     });
@@ -82,17 +81,17 @@ export function setupAuthRoutes(app: Express, config: OAuthConfig, onTokenIssued
   // RFC 8414 — OAuth 2.0 Authorization Server Metadata
   // -----------------------------------------------------------------------
 
-  app.get("/.well-known/oauth-authorization-server", (_req: Request, res: Response) => {
+  app.get([`${prefix}/.well-known/oauth-authorization-server`, `/.well-known/oauth-authorization-server${prefix}`], (_req: Request, res: Response) => {
     res.json({
-      issuer: config.mcpServerUrl,
-      authorization_endpoint: `${config.mcpServerUrl}/authorize`,
-      token_endpoint: `${config.mcpServerUrl}/token`,
-      revocation_endpoint: `${config.mcpServerUrl}/revoke`,
-      registration_endpoint: `${config.mcpServerUrl}/register`,
+      issuer,
+      authorization_endpoint: `${issuer}/authorize`,
+      token_endpoint: `${issuer}/token`,
+      revocation_endpoint: `${issuer}/revoke`,
+      ...(canRegister ? { registration_endpoint: `${issuer}/register` } : {}),
       token_endpoint_auth_methods_supported: ["client_secret_basic", "client_secret_post"],
       response_types_supported: ["code"],
       grant_types_supported: ["authorization_code", "refresh_token"],
-      code_challenge_methods_supported: ["S256", "plain"],
+      code_challenge_methods_supported: ["S256"],
       scopes_supported: SCOPES,
       service_documentation: "https://www.handwrytten.com/api/",
     });
@@ -113,6 +112,7 @@ export function setupAuthRoutes(app: Express, config: OAuthConfig, onTokenIssued
       "state",
       "code_challenge",
       "code_challenge_method",
+      "resource",
     ];
 
     // Accept params from query string (GET) or body (POST)
@@ -130,35 +130,34 @@ export function setupAuthRoutes(app: Express, config: OAuthConfig, onTokenIssued
     res.redirect(302, redirectUrl);
   }
 
-  app.get("/authorize", handleAuthorize);
-  app.post("/authorize", handleAuthorize);
+  app.get(`${prefix}/authorize`, handleAuthorize);
+  app.post(`${prefix}/authorize`, handleAuthorize);
 
   // -----------------------------------------------------------------------
   // POST /token
   // Proxies the token exchange to the Handwrytten backend.
-  // Injects the MCP server's client credentials.
+  // Preserves the caller's client credentials for backend validation.
   // -----------------------------------------------------------------------
 
-  app.post("/token", async (req: Request, res: Response) => {
+  app.post(`${prefix}/token`, async (req: Request, res: Response) => {
     try {
-      console.error("Token request body:", JSON.stringify(req.body));
-
-      const basicAuth = Buffer.from(
-        `${config.oauthClientId}:${config.oauthClientSecret}`
-      ).toString("base64");
+      res.set({ "Cache-Control": "no-store", Pragma: "no-cache" });
 
       // Forward as JSON to the backend
       const response = await fetch(`${backendOAuthBase}/token`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Basic ${basicAuth}`,
+          ...(req.headers.authorization ? { Authorization: req.headers.authorization } : {}),
         },
         body: JSON.stringify(req.body),
+        redirect: "error",
+        signal: AbortSignal.timeout(30_000),
       });
 
       const data = await response.json();
-      console.error("Token response:", response.status, JSON.stringify(data));
+      const challenge = response.headers.get("www-authenticate");
+      if (challenge) res.set("WWW-Authenticate", challenge);
 
       // Notify caller so it can track refresh tokens for proactive renewal
       if (onTokenIssued && response.ok && data.access_token && data.refresh_token) {
@@ -171,7 +170,7 @@ export function setupAuthRoutes(app: Express, config: OAuthConfig, onTokenIssued
 
       res.status(response.status).json(data);
     } catch (e: any) {
-      console.error("Token proxy error:", e.message);
+      console.error("Token proxy request failed", safeErrorInfo(e));
       res.status(502).json({
         error: "server_error",
         error_description: "Failed to reach authorization server.",
@@ -184,25 +183,27 @@ export function setupAuthRoutes(app: Express, config: OAuthConfig, onTokenIssued
   // Proxies token revocation to the Handwrytten backend.
   // -----------------------------------------------------------------------
 
-  app.post("/revoke", async (req: Request, res: Response) => {
+  app.post(`${prefix}/revoke`, async (req: Request, res: Response) => {
     try {
-      const basicAuth = Buffer.from(
-        `${config.oauthClientId}:${config.oauthClientSecret}`
-      ).toString("base64");
+      res.set({ "Cache-Control": "no-store", Pragma: "no-cache" });
 
       const response = await fetch(`${backendOAuthBase}/revoke`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Basic ${basicAuth}`,
+          ...(req.headers.authorization ? { Authorization: req.headers.authorization } : {}),
         },
         body: JSON.stringify(req.body),
+        redirect: "error",
+        signal: AbortSignal.timeout(30_000),
       });
 
       const data = await response.json();
+      const challenge = response.headers.get("www-authenticate");
+      if (challenge) res.set("WWW-Authenticate", challenge);
       res.status(response.status).json(data);
     } catch (e: any) {
-      console.error("Revoke proxy error:", e.message);
+      console.error("Revoke proxy request failed", safeErrorInfo(e));
       res.status(502).json({
         error: "server_error",
         error_description: "Failed to reach authorization server.",
@@ -212,20 +213,28 @@ export function setupAuthRoutes(app: Express, config: OAuthConfig, onTokenIssued
 
   // -----------------------------------------------------------------------
   // POST /register
-  // Dynamic Client Registration (RFC 7591) — required by MCP spec.
-  // Since Handwrytten uses pre-registered clients, we return the MCP
-  // server's own client credentials to any registering MCP client.
+  // Preserve the existing automatic setup contract, separately per product.
+  // This distributes a configured shared credential, not a newly created client.
+  // Backend redirect allowlists remain authoritative.
   // -----------------------------------------------------------------------
 
-  app.post("/register", (req: Request, res: Response) => {
-    res.status(201).json({
-      client_id: config.oauthClientId,
-      client_secret: config.oauthClientSecret,
-      client_name: req.body?.client_name || "MCP Client",
-      redirect_uris: req.body?.redirect_uris || [],
-      grant_types: ["authorization_code", "refresh_token"],
-      response_types: ["code"],
-      token_endpoint_auth_method: "client_secret_basic",
+  app.post(`${prefix}/register`, (req: Request, res: Response) => {
+    res.set({ "Cache-Control": "no-store", Pragma: "no-cache" });
+    if (canRegister) {
+      res.status(201).json({
+        client_id: config.oauthClientId,
+        client_secret: config.oauthClientSecret,
+        client_name: req.body?.client_name || "MCP Client",
+        redirect_uris: req.body?.redirect_uris || [],
+        grant_types: ["authorization_code", "refresh_token"],
+        response_types: ["code"],
+        token_endpoint_auth_method: "client_secret_basic",
+      });
+      return;
+    }
+    res.status(503).json({
+      error: "temporarily_unavailable",
+      error_description: "Automatic registration is not configured for this endpoint. Contact the server operator.",
     });
   });
 }

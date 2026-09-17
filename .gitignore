@@ -2,3 +2,6 @@ node_modules/
 dist/
 *.tgz
 .env
+
+# Internal security review must stay outside this public repository
+OAUTH-SECURITY-AND-OPENAI-HANDOFF.md

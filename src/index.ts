@@ -19,6 +19,7 @@
  */
 
 import fs from "node:fs";
+import { parseMcpServerUrl, safeErrorInfo } from "./runtime-config.js";
 import path from "node:path";
 import { urlencoded } from "express";
 import type { Request, Response } from "express";
@@ -49,7 +50,7 @@ const MCP_INSTRUCTIONS =
 // Helper: create a McpServer with tools registered for a given client
 // ---------------------------------------------------------------------------
 
-function createMcpServer(client: Handwrytten, serverUrl?: string): McpServer {
+function createMcpServer(client: Handwrytten, serverUrl?: string, oauthServerUrl?: string): McpServer {
   const server = new McpServer(
     { name: SERVER_NAME, version: SERVER_VERSION },
     {
@@ -57,8 +58,8 @@ function createMcpServer(client: Handwrytten, serverUrl?: string): McpServer {
       instructions: MCP_INSTRUCTIONS,
     }
   );
-  registerTools(server, client);
-  registerAppTools(server, client, serverUrl);
+  registerTools(server, client, oauthServerUrl);
+  registerAppTools(server, client, serverUrl, oauthServerUrl);
   registerPrompts(server);
   return server;
 }
@@ -90,28 +91,23 @@ async function runStdio(): Promise<void> {
 
 async function runHttp(): Promise<void> {
   const PORT = parseInt(process.env.PORT || "3000", 10);
-  const MCP_SERVER_URL = process.env.MCP_SERVER_URL;
+  const MCP_SERVER_URL = process.env.MCP_SERVER_URL ? parseMcpServerUrl(process.env.MCP_SERVER_URL) : undefined;
   const HANDWRYTTEN_API_URL = (process.env.HANDWRYTTEN_API_URL || "https://api2.handwrytten.com").replace(/\/+$/, "");
-  const OAUTH_CLIENT_ID = process.env.HANDWRYTTEN_OAUTH_CLIENT_ID;
-  const OAUTH_CLIENT_SECRET = process.env.HANDWRYTTEN_OAUTH_CLIENT_SECRET;
-  const DEV_API_KEY = process.env.HANDWRYTTEN_API_KEY; // Dev mode: skip OAuth
+  // Only explicitly enabled private deployments may use a shared fallback.
+  // Caller-supplied API keys remain supported on public HTTP deployments.
+  const DEV_API_KEY = process.env.MCP_ALLOW_API_KEY_FALLBACK === "true"
+    ? process.env.HANDWRYTTEN_API_KEY
+    : undefined;
 
   if (!MCP_SERVER_URL) {
     console.error("Error: MCP_SERVER_URL environment variable is required for HTTP mode.");
     process.exit(1);
   }
-  if (!DEV_API_KEY && (!OAUTH_CLIENT_ID || !OAUTH_CLIENT_SECRET)) {
-    console.error(
-      "Error: Set HANDWRYTTEN_API_KEY for dev mode, or HANDWRYTTEN_OAUTH_CLIENT_ID and HANDWRYTTEN_OAUTH_CLIENT_SECRET for production."
-    );
-    process.exit(1);
-  }
-
   const oauthConfig: OAuthConfig = {
     mcpServerUrl: MCP_SERVER_URL.replace(/\/+$/, ""),
     handwryttenApiUrl: HANDWRYTTEN_API_URL,
-    oauthClientId: OAUTH_CLIENT_ID ?? "",
-    oauthClientSecret: OAUTH_CLIENT_SECRET ?? "",
+    oauthClientId: process.env.HANDWRYTTEN_OAUTH_CLIENT_ID,
+    oauthClientSecret: process.env.HANDWRYTTEN_OAUTH_CLIENT_SECRET,
   };
 
   // -----------------------------------------------------------------------
@@ -127,7 +123,7 @@ async function runHttp(): Promise<void> {
   app.use((_req, res, next) => {
     res.set("Access-Control-Allow-Origin", "*");
     res.set("Access-Control-Allow-Methods", "GET, HEAD, POST, DELETE, OPTIONS");
-    res.set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key, Mcp-Session-Id");
+    res.set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key, Mcp-Session-Id, MCP-Protocol-Version, Last-Event-ID");
     res.set("Access-Control-Expose-Headers", "Mcp-Session-Id, WWW-Authenticate");
     if (_req.method === "OPTIONS") {
       res.status(204).end();
@@ -136,19 +132,22 @@ async function runHttp(): Promise<void> {
     next();
   });
 
-  // OAuth proxy routes (skip in dev mode — no client ID/secret)
-  if (OAUTH_CLIENT_ID && OAUTH_CLIENT_SECRET) {
-    setupAuthRoutes(app, oauthConfig);
-  } else {
-    console.error("Dev mode: OAuth routes disabled (using HANDWRYTTEN_API_KEY)");
-  }
+  // Each OAuth client supplies its own backend-issued credentials.
+  setupAuthRoutes(app, oauthConfig);
+  setupAuthRoutes(app, {
+    ...oauthConfig,
+    routePrefix: "/chatgpt",
+    oauthClientId: process.env.HANDWRYTTEN_CHATGPT_OAUTH_CLIENT_ID,
+    oauthClientSecret: process.env.HANDWRYTTEN_CHATGPT_OAUTH_CLIENT_SECRET,
+  });
+  const mcpPaths = ["/mcp", "/chatgpt/mcp"];
 
   // -----------------------------------------------------------------------
   // HEAD /mcp — allow clients to probe the endpoint without a token
   // Required by the MCP Directory submission guide.
   // -----------------------------------------------------------------------
 
-  app.head("/mcp", (_req: Request, res: Response) => {
+  app.head(mcpPaths, (_req: Request, res: Response) => {
     res.set("Content-Type", "application/json");
     res.status(200).end();
   });
@@ -157,7 +156,8 @@ async function runHttp(): Promise<void> {
   // POST /mcp — handle MCP requests (stateless: new server per request)
   // -----------------------------------------------------------------------
 
-  app.post("/mcp", async (req: Request, res: Response) => {
+  app.post(mcpPaths, async (req: Request, res: Response) => {
+    const oauthServerUrl = oauthConfig.mcpServerUrl + (req.path.toLowerCase().startsWith("/chatgpt/") ? "/chatgpt" : "");
     console.error("POST /mcp", {
       hasAuth: !!req.headers.authorization,
       hasApiKey: !!req.headers["x-api-key"],
@@ -175,7 +175,7 @@ async function runHttp(): Promise<void> {
     // Allow initialize through without auth (capability discovery).
     // All other methods require a valid token or API key.
     if (!token && !apiKey && !DEV_API_KEY && !isInit) {
-      const mcpServerUrl = oauthConfig.mcpServerUrl;
+      const mcpServerUrl = oauthServerUrl;
       res
         .status(401)
         .set(
@@ -204,21 +204,37 @@ async function runHttp(): Promise<void> {
       : apiKey
         ? new Handwrytten(apiKey)
         : new Handwrytten(DEV_API_KEY || "unauthenticated");
-    const server = createMcpServer(client, MCP_SERVER_URL);
+    const server = createMcpServer(client, MCP_SERVER_URL, token ? oauthServerUrl : undefined);
 
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: undefined,
     });
 
-    await server.connect(transport);
-    await transport.handleRequest(req, res, req.body);
+    res.on("close", () => {
+      void server.close().catch(error => console.error("MCP request cleanup failed", safeErrorInfo(error)));
+    });
+    try {
+      await server.connect(transport);
+      await transport.handleRequest(req, res, req.body);
+    } catch (error) {
+      console.error("MCP request failed", safeErrorInfo(error));
+      if (!res.headersSent) {
+        res.status(500).json({
+          jsonrpc: "2.0",
+          error: { code: -32603, message: "Internal server error" },
+          id: req.body?.id ?? null,
+        });
+      } else {
+        res.end();
+      }
+    }
   });
 
   // -----------------------------------------------------------------------
   // GET /mcp — return 405 (SSE streams not supported in sessionless mode)
   // -----------------------------------------------------------------------
 
-  app.get("/mcp", (_req: Request, res: Response) => {
+  app.get(mcpPaths, (_req: Request, res: Response) => {
     res.status(405).json({
       jsonrpc: "2.0",
       error: { code: -32000, message: "SSE streams not supported. Use POST for all requests." },
@@ -230,7 +246,7 @@ async function runHttp(): Promise<void> {
   // DELETE /mcp — return 405 (no sessions to close)
   // -----------------------------------------------------------------------
 
-  app.delete("/mcp", (_req: Request, res: Response) => {
+  app.delete(mcpPaths, (_req: Request, res: Response) => {
     res.status(405).json({
       jsonrpc: "2.0",
       error: { code: -32000, message: "Sessions not supported. Nothing to delete." },

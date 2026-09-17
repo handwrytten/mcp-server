@@ -875,10 +875,12 @@ Common error scenarios:
 |----------|----------|------|-------------|
 | `HANDWRYTTEN_API_KEY` | Yes (stdio) | Local/stdio | API key from handwrytten.com/api |
 | `MCP_SERVER_URL` | Yes (HTTP) | Remote/HTTP | Public URL of the MCP server (e.g. `https://mcp.handwrytten.com`) |
-| `OAUTH_CLIENT_ID` | Yes (HTTP) | Remote/HTTP | OAuth 2.0 client ID |
-| `OAUTH_CLIENT_SECRET` | Yes (HTTP) | Remote/HTTP | OAuth 2.0 client secret |
-| `HANDWRYTTEN_API_URL` | No | Both | Override the Handwrytten API base URL (default: production) |
+| `MCP_TRANSPORT` | Recommended | Both | Set `http` for hosted deployment or `stdio` for local clients |
+| `MCP_ALLOW_API_KEY_FALLBACK` | No | Private HTTP | Set `true` to deliberately allow anonymous HTTP requests to use `HANDWRYTTEN_API_KEY` |
+| `HANDWRYTTEN_API_URL` | No | HTTP | OAuth backend origin (default: `https://api2.handwrytten.com`); does not override the SDK's tool API endpoint |
 | `PORT` | No | HTTP | HTTP server port (default: 3000) |
+
+Claude uses `/mcp` and the existing HANDWRYTTEN_OAUTH_CLIENT_ID / HANDWRYTTEN_OAUTH_CLIENT_SECRET settings. ChatGPT uses `/chatgpt/mcp` and HANDWRYTTEN_CHATGPT_OAUTH_CLIENT_ID / HANDWRYTTEN_CHATGPT_OAUTH_CLIENT_SECRET. Each path advertises its own automatic registration when configured. See [OPENAI-SETUP.md](OPENAI-SETUP.md). Caller-supplied API keys remain supported on both paths.
 
 ---
 

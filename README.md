@@ -19,6 +19,12 @@ Once connected, your AI assistant can:
 
 ### Option A: Remote Server (OAuth — recommended)
 
+**OAuth setup:** Claude keeps `/mcp`; ChatGPT uses `/chatgpt/mcp`. Each advertises its own automatic OAuth registration using a separate backend client credential pair. See [OpenAI and OAuth setup](OPENAI-SETUP.md) for environment variables, callbacks, and compatibility limitations.
+
+#### ChatGPT
+
+Connect to `https://mcp.handwrytten.com/mcp` using OAuth and the ChatGPT-specific client credentials. Add the exact callback displayed by ChatGPT to that client's backend redirect allowlist. Full instructions: [OPENAI-SETUP.md](OPENAI-SETUP.md).
+
 The Handwrytten MCP server supports OAuth 2.0 authentication. Connect directly from Claude.ai, Claude Desktop, or Claude Code — no API key needed. You'll sign in with your Handwrytten account when prompted.
 
 #### Claude.ai
@@ -224,14 +230,15 @@ Test locally in stdio mode (API key auth):
 HANDWRYTTEN_API_KEY=your_key node dist/index.js
 ```
 
-Run the HTTP server with OAuth (requires OAuth client credentials):
+Run the HTTP server with OAuth (clients supply their own OAuth credentials):
 
 ```bash
 MCP_SERVER_URL=http://localhost:3000 \
-OAUTH_CLIENT_ID=your_client_id \
-OAUTH_CLIENT_SECRET=your_client_secret \
+MCP_TRANSPORT=http \
 node dist/index.js
 ```
+
+Caller-supplied API keys remain supported. To deliberately enable a shared environment API key for a **private** HTTP deployment, also set `MCP_ALLOW_API_KEY_FALLBACK=true`. Local stdio API-key behavior is unchanged.
 
 ## Built On
 

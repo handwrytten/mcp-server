@@ -25,6 +25,7 @@ import opentype from "opentype.js";
 import { Resvg } from "@resvg/resvg-js";
 import UPNG from "upng-js";
 import { renderCardToSvgServer } from "./server-postcard-renderer.js";
+import { registerAuthenticatedTool, toolError } from "./tool-auth.js";
 
 /**
  * Convert an SVG string to a PNG Buffer.
@@ -98,8 +99,23 @@ function cdnImages(images: any): any {
 export function registerAppTools(
   server: McpServer,
   client: Handwrytten,
-  serverUrl?: string
+  serverUrl?: string,
+  oauthServerUrl?: string,
 ): void {
+  const err = (error: unknown) => toolError(error, oauthServerUrl);
+  const assetOrigins = [
+    "https://cdn.handwrytten.com",
+    "https://d3e924qpzqov0g.cloudfront.net",
+    ...(serverUrl ? [new URL(serverUrl).origin] : []),
+  ];
+  // Keep the established tool-level policy for older hosts. Standard resource
+  // metadata also permits the data-URI images used by all three preview apps.
+  const resourceMeta = {
+    ui: { csp: {
+      resourceDomains: [...assetOrigins, "https://*.handwrytten.com", "https://*.cloudfront.net", "https://*.amazonaws.com", "data:", "blob:"],
+      connectDomains: [...assetOrigins, "https://*.handwrytten.com", "https://*.cloudfront.net", "https://*.amazonaws.com"],
+    } },
+  };
   const cardPreviewUri = "ui://handwrytten/card-preview.html";
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -111,6 +127,7 @@ export function registerAppTools(
     "Preview-Cards",
     {
       title: "Browse Cards",
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
       description:
         "[READ-ONLY] Open an interactive card browser with 3D flip animation. Browse card templates showing front, inside, and back views with card name and price. Click 'Select' to choose a card for ordering. No data is modified.",
       inputSchema: {
@@ -188,16 +205,13 @@ export function registerAppTools(
           ],
         };
       } catch (e: any) {
-        return {
-          content: [{ type: "text", text: `Error: ${e.message}` }],
-          isError: true,
-        };
+        return err(e);
       }
     }
   );
 
   // Tool for the card preview app to fetch more cards
-  server.tool(
+  registerAuthenticatedTool(server,
     "get_cards_detailed",
     "[READ-ONLY] Fetch paginated cards with front/inside/back image URLs. Used internally by the card preview app — not intended for direct use. Returns {cards, page, perPage}.",
     {
@@ -241,16 +255,13 @@ export function registerAppTools(
           ],
         };
       } catch (e: any) {
-        return {
-          content: [{ type: "text" as const, text: `Error: ${e.message}` }],
-          isError: true,
-        };
+        return err(e);
       }
     }
   );
 
   // Tool for the card preview app to fetch images (bypasses sandbox CSP)
-  server.tool(
+  registerAuthenticatedTool(server,
     "get_card_image",
     "[READ-ONLY] Fetch an image from the Handwrytten CDN and return it as a base64 MCP image block. Used internally by UI apps to bypass iframe CSP restrictions — not intended for direct use. Only allows URLs from cdn.handwrytten.com or d3e924qpzqov0g.cloudfront.net.",
     {
@@ -303,7 +314,7 @@ export function registerAppTools(
     server,
     cardPreviewUri,
     cardPreviewUri,
-    { mimeType: RESOURCE_MIME_TYPE },
+    { mimeType: RESOURCE_MIME_TYPE, _meta: resourceMeta },
     async (): Promise<ReadResourceResult> => {
       const html = await fs.readFile(
         path.join(DIST_DIR, "card-preview.html"),
@@ -311,7 +322,7 @@ export function registerAppTools(
       );
       return {
         contents: [
-          { uri: cardPreviewUri, mimeType: RESOURCE_MIME_TYPE, text: html },
+          { uri: cardPreviewUri, mimeType: RESOURCE_MIME_TYPE, text: html, _meta: resourceMeta },
         ],
       };
     }
@@ -328,6 +339,7 @@ export function registerAppTools(
     "Preview-Writing",
     {
       title: "Preview Writing",
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
       description:
         "[READ-ONLY] Render a live preview of how a handwritten message will look on a card. Shows the message in the selected handwriting font as a PNG image. Supports changing fonts interactively. No data is modified.",
       inputSchema: {
@@ -480,10 +492,7 @@ export function registerAppTools(
           _meta: pngBase64 ? { "handwrytten/previewPng": pngBase64 } : undefined,
         };
       } catch (e: any) {
-        return {
-          content: [{ type: "text", text: `Error: ${e.message}` }],
-          isError: true,
-        };
+        return err(e);
       }
     }
   );
@@ -601,10 +610,7 @@ export function registerAppTools(
           _meta: pngBase64 ? { "handwrytten/previewPng": pngBase64 } : undefined,
         };
       } catch (e: any) {
-        return {
-          content: [{ type: "text" as const, text: `Error: ${e.message}` }],
-          isError: true,
-        };
+        return err(e);
       }
     }
   );
@@ -614,7 +620,7 @@ export function registerAppTools(
     server,
     writingPreviewUri,
     writingPreviewUri,
-    { mimeType: RESOURCE_MIME_TYPE },
+    { mimeType: RESOURCE_MIME_TYPE, _meta: resourceMeta },
     async (): Promise<ReadResourceResult> => {
       const html = await fs.readFile(
         path.join(DIST_DIR, "writing-preview.html"),
@@ -622,7 +628,7 @@ export function registerAppTools(
       );
       return {
         contents: [
-          { uri: writingPreviewUri, mimeType: RESOURCE_MIME_TYPE, text: html },
+          { uri: writingPreviewUri, mimeType: RESOURCE_MIME_TYPE, text: html, _meta: resourceMeta },
         ],
       };
     }
@@ -639,6 +645,7 @@ export function registerAppTools(
     "View-Basket",
     {
       title: "View Basket",
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
       description:
         "[READ-ONLY] Open a visual summary of the current basket contents. Shows each order with card preview image, recipient/sender addresses, message preview, per-order pricing breakdown, and checkout totals. Supports removing individual items or clearing the basket from within the UI.",
       inputSchema: {},
@@ -722,16 +729,13 @@ export function registerAppTools(
           ],
         };
       } catch (e: any) {
-        return {
-          content: [{ type: "text", text: `Error: ${e.message}` }],
-          isError: true,
-        };
+        return err(e);
       }
     }
   );
 
   // Tool for the basket app to refresh data
-  server.tool(
+  registerAuthenticatedTool(server,
     "get_basket_summary",
     "[READ-ONLY] Fetch current basket items with card details, addresses, pricing, and checkout totals. Used internally by the basket summary app — not intended for direct use. Returns {items, count, checkout}.",
     {},
@@ -794,16 +798,13 @@ export function registerAppTools(
           ],
         };
       } catch (e: any) {
-        return {
-          content: [{ type: "text" as const, text: `Error: ${e.message}` }],
-          isError: true,
-        };
+        return err(e);
       }
     }
   );
 
   // Tool for the basket app to remove a single item
-  server.tool(
+  registerAuthenticatedTool(server,
     "basket_remove_item",
     "[DESTRUCTIVE — removes order from basket] Remove a single order from the basket. The order is discarded permanently. Used by the basket summary app.",
     {
@@ -817,16 +818,13 @@ export function registerAppTools(
           content: [{ type: "text" as const, text: JSON.stringify({ success: true, result }) }],
         };
       } catch (e: any) {
-        return {
-          content: [{ type: "text" as const, text: `Error: ${e.message}` }],
-          isError: true,
-        };
+        return err(e);
       }
     }
   );
 
   // Tool for the basket app to clear all items
-  server.tool(
+  registerAuthenticatedTool(server,
     "basket_clear_all",
     "[DESTRUCTIVE — removes ALL orders from basket] Always confirm with the user before calling. Permanently removes every order from the basket. None will be sent. Used by the basket summary app.",
     {},
@@ -838,10 +836,7 @@ export function registerAppTools(
           content: [{ type: "text" as const, text: JSON.stringify({ success: true, result }) }],
         };
       } catch (e: any) {
-        return {
-          content: [{ type: "text" as const, text: `Error: ${e.message}` }],
-          isError: true,
-        };
+        return err(e);
       }
     }
   );
@@ -851,7 +846,7 @@ export function registerAppTools(
     server,
     basketSummaryUri,
     basketSummaryUri,
-    { mimeType: RESOURCE_MIME_TYPE },
+    { mimeType: RESOURCE_MIME_TYPE, _meta: resourceMeta },
     async (): Promise<ReadResourceResult> => {
       const html = await fs.readFile(
         path.join(DIST_DIR, "basket-summary.html"),
@@ -859,7 +854,7 @@ export function registerAppTools(
       );
       return {
         contents: [
-          { uri: basketSummaryUri, mimeType: RESOURCE_MIME_TYPE, text: html },
+          { uri: basketSummaryUri, mimeType: RESOURCE_MIME_TYPE, text: html, _meta: resourceMeta },
         ],
       };
     }

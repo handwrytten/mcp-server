@@ -11,6 +11,7 @@ interface FontInfo {
 }
 
 interface WritingData {
+  cardId?: string;
   renderError?: string;
   selectedFont: FontInfo;
   fonts?: FontInfo[];
@@ -110,6 +111,7 @@ fontSelect.addEventListener("change", async () => {
       name: "preview_writing",
       arguments: {
         fontId,
+        ...(state.cardId ? { cardId: state.cardId } : {}),
         message: state.message || "",
         wishes: state.wishes || "",
         inkColor: state.inkColor || "#0040ac",
@@ -121,6 +123,7 @@ fontSelect.addEventListener("change", async () => {
     const data: WritingData = JSON.parse(extractJson(text));
 
     // Keep fonts list from original state
+    data.cardId = state.cardId;
     data.fonts = state.fonts;
     data.message = state.message;
     data.wishes = state.wishes;

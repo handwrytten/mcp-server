@@ -29,7 +29,8 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { createMcpExpressApp } from "@modelcontextprotocol/sdk/server/express.js";
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
-import { Handwrytten } from "handwrytten";
+import type { Handwrytten } from "handwrytten";
+import { createHandwryttenClient } from "./handwrytten-client.js";
 
 import { registerTools } from "./tools.js";
 import { registerAppTools, previewCache } from "./app-tools.js";
@@ -78,7 +79,7 @@ async function runStdio(): Promise<void> {
     process.exit(1);
   }
 
-  const client = new Handwrytten(API_KEY);
+  const client = createHandwryttenClient(API_KEY);
   const server = createMcpServer(client);
   const transport = new StdioServerTransport();
   await server.connect(transport);
@@ -200,10 +201,10 @@ async function runHttp(): Promise<void> {
     // For unauthenticated initialize, use a dummy client — the initialize
     // response only contains server name/version/capabilities, no API calls.
     const client = token
-      ? new Handwrytten({ accessToken: token })
+      ? createHandwryttenClient({ accessToken: token })
       : apiKey
-        ? new Handwrytten(apiKey)
-        : new Handwrytten(DEV_API_KEY || "unauthenticated");
+        ? createHandwryttenClient(apiKey)
+        : createHandwryttenClient(DEV_API_KEY || "unauthenticated");
     const server = createMcpServer(client, MCP_SERVER_URL, token ? oauthServerUrl : undefined);
 
     const transport = new StreamableHTTPServerTransport({

@@ -18,6 +18,7 @@ import type {
 } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import { Handwrytten } from "handwrytten";
+import { writingDimensions } from "./writing-dimensions.js";
 import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -381,7 +382,7 @@ export function registerAppTools(
         const [fontsRaw, cardData] = await Promise.all([
           client.fonts.list(),
           cardId
-            ? (client.cards.get(cardId) as Promise<any>)
+            ? client.cards.get(cardId)
             : Promise.resolve(null),
         ]);
 
@@ -404,28 +405,7 @@ export function registerAppTools(
           if (match) selectedFont = match;
         }
 
-        const card = {
-          width: cardData?.raw?.closed_width
-            ? parseFloat(cardData.raw.closed_width) * 96
-            : 672,
-          height: cardData?.raw?.closed_height
-            ? parseFloat(cardData.raw.closed_height) * 96
-            : 480,
-          padding: [
-            cardData?.raw?.preview_margin_top
-              ? parseFloat(cardData.raw.preview_margin_top) * 96
-              : 28.8,
-            cardData?.raw?.preview_margin_right
-              ? parseFloat(cardData.raw.preview_margin_right) * 96
-              : 28.8,
-            cardData?.raw?.preview_margin_bottom
-              ? parseFloat(cardData.raw.preview_margin_bottom) * 96
-              : 28.8,
-            cardData?.raw?.preview_margin_left
-              ? parseFloat(cardData.raw.preview_margin_left) * 96
-              : 28.8,
-          ],
-        };
+        const card = writingDimensions(cardData);
 
         let renderError = "";
         let pngBase64 = "";
@@ -481,6 +461,7 @@ export function registerAppTools(
               type: "text",
               text: JSON.stringify({
                 renderError,
+                cardId,
                 selectedFont: { id: selectedFont.id, label: selectedFont.label },
                 fonts: fontsMinimal,
                 message,
@@ -521,7 +502,7 @@ export function registerAppTools(
         const [fontsRaw, cardData] = await Promise.all([
           client.fonts.list(),
           cardId
-            ? (client.cards.get(cardId) as Promise<any>)
+            ? client.cards.get(cardId)
             : Promise.resolve(null),
         ]);
 
@@ -542,28 +523,7 @@ export function registerAppTools(
         );
         if (match) selectedFont = match;
 
-        const card = {
-          width: cardData?.raw?.closed_width
-            ? parseFloat(cardData.raw.closed_width) * 96
-            : 672,
-          height: cardData?.raw?.closed_height
-            ? parseFloat(cardData.raw.closed_height) * 96
-            : 480,
-          padding: [
-            cardData?.raw?.preview_margin_top
-              ? parseFloat(cardData.raw.preview_margin_top) * 96
-              : 28.8,
-            cardData?.raw?.preview_margin_right
-              ? parseFloat(cardData.raw.preview_margin_right) * 96
-              : 28.8,
-            cardData?.raw?.preview_margin_bottom
-              ? parseFloat(cardData.raw.preview_margin_bottom) * 96
-              : 28.8,
-            cardData?.raw?.preview_margin_left
-              ? parseFloat(cardData.raw.preview_margin_left) * 96
-              : 28.8,
-          ],
-        };
+        const card = writingDimensions(cardData);
 
         let pngBase64 = "";
         let renderError = "";
@@ -603,6 +563,7 @@ export function registerAppTools(
               type: "text" as const,
               text: JSON.stringify({
                 renderError,
+                cardId,
                 selectedFont: { id: selectedFont.id, label: selectedFont.label },
               }),
             },

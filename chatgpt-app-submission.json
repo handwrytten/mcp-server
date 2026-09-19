@@ -279,7 +279,7 @@
         "destructiveHint": true
       },
       "justifications": {
-        "read_only_justification": "Adds orders and submits the account basket for payment and physical mailing and changes account state.",
+        "read_only_justification": "Requires explicit confirmation and an empty basket, then adds the requested orders and submits them for payment and physical mailing, changing account state.",
         "open_world_justification": "Can initiate physical delivery to recipients and payment processing.",
         "destructive_justification": "Can charge the account and initiate irreversible physical mail fulfillment."
       }
@@ -626,8 +626,8 @@
       "description": "Validate a dedicated reviewer basket in test mode.",
       "user_prompt": "Using the dedicated Handwrytten test-mode reviewer account, review all basket items and submit them in test mode. I confirm this test submission of the entire basket.",
       "file_attachment_urls": null,
-      "tools_triggered": "basket_send",
-      "expected_output": "Review all items, then call basket_send with confirmSend=true and testMode=true. Refuse if the connected account is not in test mode. Report the backend result without claiming physical fulfillment.",
+      "tools_triggered": "View-Basket, basket_send",
+      "expected_output": "Call View-Basket to review all items, then call basket_send with confirmSend=true and testMode=true. Refuse if the connected account is not in test mode. Report the backend result without claiming physical fulfillment.",
       "expected_output_url": null
     },
     {

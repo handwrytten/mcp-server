@@ -1,6 +1,7 @@
 import type { McpServer, ToolCallback } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult, ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
 import type { ZodRawShape } from "zod";
+import { outputSchemaFor, withStructuredResult } from "./tool-results.js";
 
 // Preserve the original advertised scopes until backend client allowlists
 // and enforcement are migrated together. A global catalog entry is not enough.
@@ -22,8 +23,9 @@ export function registerAuthenticatedTool<Args extends ZodRawShape>(
     title: annotations.title,
     description,
     inputSchema,
-    annotations: { openWorldHint: true, ...annotations },
-  }, callback);
+    outputSchema: outputSchemaFor(name),
+    annotations,
+  }, withStructuredResult(name, callback));
 }
 
 export function toolError(error: unknown, oauthServerUrl?: string): CallToolResult {

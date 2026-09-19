@@ -69,11 +69,10 @@ interface BasketItem {
 }
 
 interface CheckoutData {
-  grand_total: number;
-  tax: number;
-  total: number;
-  applied_credit: number;
-  coupon_credit: number;
+  estimated_subtotal: number | null;
+  is_estimate: true;
+  complete: boolean;
+  notice: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -323,24 +322,11 @@ function renderBasketItem(item: BasketItem): HTMLElement {
 }
 
 function renderCheckout(checkout: CheckoutData) {
-  checkoutSubtotal.textContent = formatPrice(checkout.grand_total);
-  checkoutTax.textContent = checkout.tax ? formatPrice(checkout.tax) : "Free";
-  checkoutTotal.textContent = checkout.total ? formatPrice(checkout.total) : "Free";
-
-  if (checkout.applied_credit > 0) {
-    checkoutCredits.textContent = `-${formatPrice(checkout.applied_credit)}`;
-    checkoutCreditsRow.classList.remove("hidden");
-  } else {
-    checkoutCreditsRow.classList.add("hidden");
-  }
-
-  if (checkout.coupon_credit > 0) {
-    checkoutCoupon.textContent = `-${formatPrice(checkout.coupon_credit)}`;
-    checkoutCouponRow.classList.remove("hidden");
-  } else {
-    checkoutCouponRow.classList.add("hidden");
-  }
-
+  checkoutSubtotal.textContent = checkout.estimated_subtotal == null ? "Unavailable" : formatPrice(checkout.estimated_subtotal);
+  checkoutTax.textContent = "Calculated at checkout";
+  checkoutTotal.textContent = "Calculated at checkout";
+  checkoutCreditsRow.classList.add("hidden");
+  checkoutCouponRow.classList.add("hidden");
   checkoutSection.classList.remove("hidden");
 }
 
@@ -448,7 +434,7 @@ sendBtn.addEventListener("click", async () => {
   if (!sendConfirmPending) {
     // First click — show confirmation state
     sendConfirmPending = true;
-    sendBtn.textContent = "CONFIRM SEND?";
+    sendBtn.textContent = "CONFIRM SEND ALL?";
     sendBtn.classList.add("btn-send-confirm");
     // Auto-reset after 4 seconds if not confirmed
     sendConfirmTimer = setTimeout(() => {
@@ -466,14 +452,15 @@ sendBtn.addEventListener("click", async () => {
   sendBtn.textContent = "SENDING...";
   sendBtn.disabled = true;
   try {
-    await app.callServerTool({
+    const result = await app.callServerTool({
       name: "basket_send",
-      arguments: {},
+      arguments: { confirmSend: true },
     });
-    loadBasket();
+    if (result.isError) throw new Error(result.content?.find(c => c.type === "text")?.text || "Submission failed");
+    await loadBasket();
   } catch (e) {
     console.error("Send failed:", e);
-    sendBtn.textContent = "SEND!";
+    sendBtn.textContent = "SEND FAILED — RETRY";
     sendBtn.disabled = false;
   }
 });

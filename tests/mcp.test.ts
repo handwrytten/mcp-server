@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { readFileSync } from "node:fs";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
@@ -22,8 +23,25 @@ test("tool annotations and preview CSP survive serialization, and backend 401 tr
     await client.connect(clientTransport);
     const { tools } = await client.listTools();
     assert.ok(tools.length > 40);
+    const submission = JSON.parse(readFileSync(new URL("../chatgpt-app-submission.json", import.meta.url), "utf8"));
+    assert.deepEqual(Object.keys(submission.tools).sort(), tools.map(t => t.name).sort());
+    const external = new Set(["send_order", "basket_send", "create_qr_code", "delete_qr_code", "upload_custom_image"]);
+    const destructive = new Set(["delete_qr_code", "update_recipient", "delete_recipient", "add_sender", "delete_sender", "send_order", "basket_send", "basket_remove", "basket_clear", "delete_custom_image", "delete_custom_card", "basket_remove_item", "basket_clear_all"]);
     for (const tool of tools) {
-      assert.equal(typeof tool.annotations?.readOnlyHint, "boolean", tool.name);
+      assert.equal(tool.outputSchema?.type, "object", tool.name);
+      assert.ok(tool.outputSchema?.properties?.result, tool.name);
+      for (const hint of ["readOnlyHint", "openWorldHint", "destructiveHint"] as const) {
+        assert.equal(typeof tool.annotations?.[hint], "boolean", `${tool.name}.${hint}`);
+        assert.equal(submission.tools[tool.name].annotations[hint], tool.annotations?.[hint], `${tool.name}.${hint} submission`);
+      }
+      assert.equal(tool.annotations?.openWorldHint, external.has(tool.name), tool.name);
+      assert.equal(tool.annotations?.destructiveHint, destructive.has(tool.name), tool.name);
+    }
+    assert.equal(submission.test_cases.length, 5);
+    assert.equal(submission.negative_test_cases.length, 3);
+    assert.ok(submission.app_info.subtitle.length <= 30);
+    for (const testCase of submission.test_cases) {
+      for (const name of testCase.tools_triggered.split(", ")) assert.ok(submission.tools[name], name);
     }
     for (const name of ["Preview-Cards", "Preview-Writing", "View-Basket"]) {
       const tool = tools.find(tool => tool.name === name)!;
@@ -32,10 +50,11 @@ test("tool annotations and preview CSP survive serialization, and backend 401 tr
       const { contents } = await client.readResource({ uri });
       const csp = (contents[0]._meta?.ui as { csp: { resourceDomains: string[]; connectDomains: string[] } }).csp;
       assert.ok(csp.resourceDomains.includes("https://cdn.handwrytten.com"));
-      assert.ok(csp.connectDomains.includes("https://mcp.handwrytten.com"));
+      assert.deepEqual(csp.connectDomains, []);
+      assert.equal((contents[0]._meta?.ui as any).domain, "https://mcp.handwrytten.com");
       assert.ok(csp.resourceDomains.includes("data:"), name);
-      assert.ok(csp.resourceDomains.includes("blob:"), name);
-      assert.ok(csp.resourceDomains.includes("https://*.amazonaws.com"), name);
+      assert.ok(!csp.resourceDomains.includes("blob:"), name);
+      assert.ok(!csp.resourceDomains.some(d => d.includes("*")), name);
       const legacyCsp = (tool._meta?.ui as { csp: { "img-src": string[] } }).csp;
       assert.ok(legacyCsp["img-src"].includes("data:"), name);
       assert.ok(!csp.resourceDomains.includes("https:"));

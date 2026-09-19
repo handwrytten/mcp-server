@@ -20,6 +20,6 @@ test("server URL validation rejects malformed or non-origin configuration", () =
 
 test("tool registration preserves an explicit closed-world annotation", () => {
   const server = new McpServer({ name: "test", version: "1" });
-  const tool = registerAuthenticatedTool(server, "closed", "Test", {}, { openWorldHint: false }, async () => ({ content: [] }));
+  const tool = registerAuthenticatedTool(server, "get_user", "Test", {}, { openWorldHint: false }, async () => ({ content: [] }));
   assert.equal(tool.annotations?.openWorldHint, false);
 });

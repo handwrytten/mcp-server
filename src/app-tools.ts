@@ -8,7 +8,7 @@
 
 import {
   registerAppResource,
-  registerAppTool,
+  registerAppTool as registerRawAppTool,
   RESOURCE_MIME_TYPE,
 } from "@modelcontextprotocol/ext-apps/server";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -18,6 +18,9 @@ import type {
 } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import { Handwrytten } from "handwrytten";
+import { outputSchemaFor, withStructuredResult } from "./tool-results.js";
+import { previewMetadata, validateImageUrl } from "./preview-security.js";
+import { estimateBasket } from "./basket-safety.js";
 import { writingDimensions } from "./writing-dimensions.js";
 import crypto from "node:crypto";
 import fs from "node:fs/promises";
@@ -27,6 +30,10 @@ import { Resvg } from "@resvg/resvg-js";
 import UPNG from "upng-js";
 import { renderCardToSvgServer } from "./server-postcard-renderer.js";
 import { registerAuthenticatedTool, toolError } from "./tool-auth.js";
+
+function registerAppTool(server: McpServer, name: string, config: any, callback: (...args: any[]) => any) {
+  return registerRawAppTool(server, name, { ...config, outputSchema: outputSchemaFor(name) }, withStructuredResult(name, callback));
+}
 
 /**
  * Convert an SVG string to a PNG Buffer.
@@ -104,19 +111,7 @@ export function registerAppTools(
   oauthServerUrl?: string,
 ): void {
   const err = (error: unknown) => toolError(error, oauthServerUrl);
-  const assetOrigins = [
-    "https://cdn.handwrytten.com",
-    "https://d3e924qpzqov0g.cloudfront.net",
-    ...(serverUrl ? [new URL(serverUrl).origin] : []),
-  ];
-  // Keep the established tool-level policy for older hosts. Standard resource
-  // metadata also permits the data-URI images used by all three preview apps.
-  const resourceMeta = {
-    ui: { csp: {
-      resourceDomains: [...assetOrigins, "https://*.handwrytten.com", "https://*.cloudfront.net", "https://*.amazonaws.com", "data:", "blob:"],
-      connectDomains: [...assetOrigins, "https://*.handwrytten.com", "https://*.cloudfront.net", "https://*.amazonaws.com"],
-    } },
-  };
+  const { resourceMeta, legacyCsp } = previewMetadata(serverUrl);
   const cardPreviewUri = "ui://handwrytten/card-preview.html";
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -128,7 +123,7 @@ export function registerAppTools(
     "Preview-Cards",
     {
       title: "Browse Cards",
-      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
       description:
         "[READ-ONLY] Open an interactive card browser with 3D flip animation. Browse card templates showing front, inside, and back views with card name and price. Click 'Select' to choose a card for ordering. No data is modified.",
       inputSchema: {
@@ -144,26 +139,7 @@ export function registerAppTools(
       _meta: {
         ui: {
           resourceUri: cardPreviewUri,
-          csp: {
-            "img-src": [
-              "https://*.cloudfront.net",
-              "https://*.handwrytten.com",
-              "https://*.amazonaws.com",
-              "https://*.trycloudflare.com",
-              "https:",
-              "http:",
-              "data:",
-              "blob:",
-            ],
-            "connect-src": [
-              "https://*.cloudfront.net",
-              "https://*.handwrytten.com",
-              "https://*.amazonaws.com",
-              "https://*.trycloudflare.com",
-              "https:",
-              "http:",
-            ],
-          },
+          csp: legacyCsp,
         },
       },
     },
@@ -221,7 +197,7 @@ export function registerAppTools(
       perPage: z.number().optional().describe("Cards per page, 1-50 (default: 20)"),
       query: z.string().optional().describe("Search cards by name (case-insensitive partial match)"),
     },
-    { title: "Fetch Card Data", readOnlyHint: true, destructiveHint: false },
+    { title: "Fetch Card Data", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     async ({ categoryId, page, perPage, query }) => {
       try {
         const pg = Math.max(1, page ?? 1);
@@ -268,21 +244,11 @@ export function registerAppTools(
     {
       url: z.string().describe("Full HTTPS URL of the image on cdn.handwrytten.com or d3e924qpzqov0g.cloudfront.net"),
     },
-    { title: "Fetch Card Image", readOnlyHint: true, destructiveHint: false },
+    { title: "Fetch Card Image", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     async ({ url }) => {
       try {
-        // Only allow fetching from known CDN domains
-        if (
-          !url.startsWith("https://cdn.handwrytten.com") &&
-          !url.startsWith("https://d3e924qpzqov0g.cloudfront.net")
-        ) {
-          return {
-            content: [{ type: "text" as const, text: "Invalid URL domain" }],
-            isError: true,
-          };
-        }
-
-        const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
+        const imageUrl = validateImageUrl(url);
+        const res = await fetch(imageUrl, { redirect: "error", signal: AbortSignal.timeout(15000) });
         if (!res.ok) {
           return {
             content: [{ type: "text" as const, text: `HTTP ${res.status}` }],
@@ -290,8 +256,9 @@ export function registerAppTools(
           };
         }
 
+        const contentType = (res.headers.get("content-type") || "").split(";")[0];
+        if (!["image/png", "image/jpeg", "image/gif", "image/webp"].includes(contentType)) throw new Error("Unsupported image type");
         const buffer = Buffer.from(await res.arrayBuffer());
-        const contentType = res.headers.get("content-type") || "image/jpeg";
 
         return {
           content: [{
@@ -340,7 +307,7 @@ export function registerAppTools(
     "Preview-Writing",
     {
       title: "Preview Writing",
-      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
       description:
         "[READ-ONLY] Render a live preview of how a handwritten message will look on a card. Shows the message in the selected handwriting font as a PNG image. Supports changing fonts interactively. No data is modified.",
       inputSchema: {
@@ -365,15 +332,7 @@ export function registerAppTools(
       _meta: {
         ui: {
           resourceUri: writingPreviewUri,
-          csp: {
-            "img-src": [
-              "https://*.handwrytten.com",
-              "https://*.trycloudflare.com",
-              "https:",
-              "http:",
-              "data:",
-            ],
-          },
+          csp: legacyCsp,
         },
       },
     },
@@ -482,7 +441,8 @@ export function registerAppTools(
   // visibility: ["app"] hides it from the model (so the model can only pick
   // the Preview-Writing app tool, which spawns the iframe) while keeping it
   // callable by the iframe via app.callServerTool.
-  server.registerTool(
+  registerAppTool(
+    server,
     "preview_writing",
     {
       description:
@@ -494,7 +454,7 @@ export function registerAppTools(
         inkColor: z.string().optional().describe("Ink color as hex string (e.g. '#0040ac' for blue, '#000000' for black)"),
         cardId: z.string().optional().describe("Card template ID for accurate dimensions. Omit to use default card size."),
       },
-      annotations: { title: "Render Writing Preview", readOnlyHint: true, destructiveHint: false },
+      annotations: { title: "Render Writing Preview", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
       _meta: { ui: { visibility: ["app"] } },
     },
     async ({ fontId, message, wishes, inkColor, cardId }) => {
@@ -606,27 +566,14 @@ export function registerAppTools(
     "View-Basket",
     {
       title: "View Basket",
-      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
       description:
-        "[READ-ONLY] Open a visual summary of the current basket contents. Shows each order with card preview image, recipient/sender addresses, message preview, per-order pricing breakdown, and checkout totals. Supports removing individual items or clearing the basket from within the UI.",
+        "[READ-ONLY] Open a visual summary of the current basket contents. Shows each order with card preview image, recipient/sender addresses, message preview, per-order pricing breakdown, and an estimated subtotal. Supports removing individual items or clearing the basket from within the UI.",
       inputSchema: {},
       _meta: {
         ui: {
           resourceUri: basketSummaryUri,
-          csp: {
-            "img-src": [
-              "https://*.cloudfront.net",
-              "https://*.handwrytten.com",
-              "https://*.amazonaws.com",
-              "data:",
-              "blob:",
-            ],
-            "connect-src": [
-              "https://*.cloudfront.net",
-              "https://*.handwrytten.com",
-              "https://*.amazonaws.com",
-            ],
-          },
+          csp: legacyCsp,
         },
       },
     },
@@ -667,19 +614,8 @@ export function registerAppTools(
 
         const count = countRaw?.count ?? items.length;
 
-        // Calculate checkout totals
-        let grandTotal = 0;
-        items.forEach((item: any) => {
-          grandTotal += item.price_structure?.sub_total ?? item.sub_total ?? 0;
-        });
-
-        const checkout = {
-          grand_total: grandTotal,
-          tax: 0,
-          total: grandTotal,
-          applied_credit: 0,
-          coupon_credit: 0,
-        };
+        // Do not fabricate tax or credits when the API supplies only item subtotals.
+        const checkout = estimateBasket(items, Number(count));
 
         return {
           content: [
@@ -698,9 +634,9 @@ export function registerAppTools(
   // Tool for the basket app to refresh data
   registerAuthenticatedTool(server,
     "get_basket_summary",
-    "[READ-ONLY] Fetch current basket items with card details, addresses, pricing, and checkout totals. Used internally by the basket summary app — not intended for direct use. Returns {items, count, checkout}.",
+    "[READ-ONLY] Fetch current basket items with card details, addresses, pricing, and an estimated subtotal. Used internally by the basket summary app — not intended for direct use. Returns {items, count, checkout}.",
     {},
-    { title: "Fetch Basket Summary", readOnlyHint: true, destructiveHint: false },
+    { title: "Fetch Basket Summary", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     async () => {
       try {
         const [itemsRaw, countRaw] = await Promise.all([
@@ -737,18 +673,7 @@ export function registerAppTools(
 
         const count = countRaw?.count ?? items.length;
 
-        let grandTotal = 0;
-        items.forEach((item: any) => {
-          grandTotal += item.price_structure?.sub_total ?? item.sub_total ?? 0;
-        });
-
-        const checkout = {
-          grand_total: grandTotal,
-          tax: 0,
-          total: grandTotal,
-          applied_credit: 0,
-          coupon_credit: 0,
-        };
+        const checkout = estimateBasket(items, Number(count));
 
         return {
           content: [
@@ -771,7 +696,7 @@ export function registerAppTools(
     {
       basketId: z.number().describe("Basket item ID to remove (from get_basket_summary results)"),
     },
-    { title: "Remove Basket Item", destructiveHint: true, readOnlyHint: false },
+    { title: "Remove Basket Item", destructiveHint: true, readOnlyHint: false, openWorldHint: false },
     async ({ basketId }) => {
       try {
         const result = await client.basket.remove(basketId);
@@ -789,7 +714,7 @@ export function registerAppTools(
     "basket_clear_all",
     "[DESTRUCTIVE — removes ALL orders from basket] Always confirm with the user before calling. Permanently removes every order from the basket. None will be sent. Used by the basket summary app.",
     {},
-    { title: "Clear All Basket Items", destructiveHint: true, readOnlyHint: false },
+    { title: "Clear All Basket Items", destructiveHint: true, readOnlyHint: false, openWorldHint: false },
     async () => {
       try {
         const result = await client.basket.clear();

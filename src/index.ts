@@ -91,6 +91,7 @@ async function runStdio(): Promise<void> {
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function runHttp(): Promise<void> {
+  if (process.env.MCP_WIDGET_DOMAIN) parseMcpServerUrl(process.env.MCP_WIDGET_DOMAIN);
   const PORT = parseInt(process.env.PORT || "3000", 10);
   const MCP_SERVER_URL = process.env.MCP_SERVER_URL ? parseMcpServerUrl(process.env.MCP_SERVER_URL) : undefined;
   const HANDWRYTTEN_API_URL = (process.env.HANDWRYTTEN_API_URL || "https://api2.handwrytten.com").replace(/\/+$/, "");

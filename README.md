@@ -23,7 +23,7 @@ Once connected, your AI assistant can:
 
 #### ChatGPT
 
-Connect to `https://mcp.handwrytten.com/mcp` using OAuth and the ChatGPT-specific client credentials. Add the exact callback displayed by ChatGPT to that client's backend redirect allowlist. Full instructions: [OPENAI-SETUP.md](OPENAI-SETUP.md).
+Connect to `https://mcp.handwrytten.com/chatgpt/mcp` using OAuth; automatic registration selects the ChatGPT client. Add the exact callback displayed by ChatGPT to that client's backend redirect allowlist. Full instructions: [OPENAI-SETUP.md](OPENAI-SETUP.md).
 
 The Handwrytten MCP server supports OAuth 2.0 authentication. Connect directly from Claude.ai, Claude Desktop, or Claude Code — no API key needed. You'll sign in with your Handwrytten account when prompted.
 
@@ -253,3 +253,5 @@ Caller-supplied API keys remain supported. To deliberately enable a shared envir
 ## License
 
 MIT
+
+Submission data-handling draft: [PRIVACY-DISCLOSURE.md](PRIVACY-DISCLOSURE.md). Deployment and preview checks: [OPENAI-SETUP.md](OPENAI-SETUP.md).

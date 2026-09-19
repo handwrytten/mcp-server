@@ -1,7 +1,7 @@
 /**
  * MCP tool registrations for the Handwrytten API.
  *
- * All 55 tools are registered via `registerTools()` which accepts a
+ * API tools are registered via `registerTools()` which accepts a
  * McpServer instance and a Handwrytten client. This allows per-session
  * clients in HTTP mode (OAuth) and a single shared client in stdio mode.
  */
@@ -10,6 +10,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { Handwrytten } from "handwrytten";
 import { registerAuthenticatedTool, toolError } from "./tool-auth.js";
+import { sendSingleOrder, sendConfirmedBasket } from "./basket-safety.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -34,9 +35,9 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "get_user",
-    "[READ-ONLY] Get the authenticated user's Handwrytten profile. Returns: id, name, email, credits balance, test_mode flag, subscription status.",
+    "[READ-ONLY] Get the authenticated user's Handwrytten profile. Returns normalized id, firstName, lastName, email and credits, plus additional fields under raw; credential fields are removed.",
     {},
-    { title: "Get User Profile", readOnlyHint: true, destructiveHint: false },
+    { title: "Get User Profile", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     async () => {
       try {
         const user = await client.auth.getUser();
@@ -49,9 +50,9 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "list_signatures",
-    "[READ-ONLY] List the user's saved handwriting signature images. Returns array of {id, name, preview_url}. Use the id as signatureId when placing orders via send_order or basket_add_order.",
+    "[READ-ONLY] List the user's saved handwriting signature images. Returns array of {id, preview, raw}. Use the id as signatureId when placing orders via send_order or basket_add_order.",
     {},
-    { title: "List Signatures", readOnlyHint: true, destructiveHint: false },
+    { title: "List Signatures", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     async () => {
       try {
         const sigs = await client.auth.listSignatures();
@@ -98,7 +99,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
         .optional()
         .describe("Search card names (case-insensitive partial match)"),
     },
-    { title: "Browse Cards", readOnlyHint: true, destructiveHint: false },
+    { title: "Browse Cards", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     async ({ categoryId, category, page, perPage, query }) => {
       try {
         // Fetch all cards and categories in parallel
@@ -172,9 +173,9 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "get_card",
-    "[READ-ONLY] Get full details of a specific card template. Returns: id, name, cover image, orientation (P=portrait, L=landscape, F=flat), dimensions, pricing, detailed_images (front/inside/back).",
+    "[READ-ONLY] Get full details of a specific card template. Returns id, title, imageUrl, cover and raw; dimensions, pricing and detailed images are inside raw.",
     { cardId: z.string().describe("Card template ID (numeric string, from list_cards results)") },
-    { title: "Get Card Details", readOnlyHint: true, destructiveHint: false },
+    { title: "Get Card Details", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     async ({ cardId }) => {
       try {
         const card = await client.cards.get(cardId);
@@ -189,7 +190,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
     "list_card_categories",
     "[READ-ONLY] List all card categories (e.g. 'Thank You', 'Birthday', 'Holiday', 'My Custom Cards'). Returns array of {id, name, slug}. Pass the returned id as categoryId to list_cards to filter.",
     {},
-    { title: "List Card Categories", readOnlyHint: true, destructiveHint: false },
+    { title: "List Card Categories", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     async () => {
       try {
         const data = await (client as any)._http.get("categories/list") as any;
@@ -213,7 +214,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
     "list_fonts",
     "[READ-ONLY] List available handwriting font styles for the message body of orders. Returns array of {id, name, label, previewUrl}. Pass the id or label as the 'font' parameter to send_order or basket_add_order. These are robot-handwritten fonts, not printed fonts.",
     {},
-    { title: "List Handwriting Fonts", readOnlyHint: true, destructiveHint: false },
+    { title: "List Handwriting Fonts", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     async () => {
       try {
         const fonts = await client.fonts.list();
@@ -228,7 +229,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
     "list_customizer_fonts",
     "[READ-ONLY] List printed/typeset fonts for custom card text zones (header, footer, main, back). Returns array of {id, name, label}. These are DIFFERENT from handwriting fonts — use these only with create_custom_card zone parameters (headerFontId, mainFontId, footerFontId, backFontId).",
     {},
-    { title: "List Custom Card Fonts", readOnlyHint: true, destructiveHint: false },
+    { title: "List Custom Card Fonts", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     async () => {
       try {
         const fonts = await client.fonts.listForCustomizer();
@@ -245,9 +246,9 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "list_gift_cards",
-    "[READ-ONLY] List available physical gift card products and their price denominations. Returns array of {id, name, denominations: [{id, price}]}. Pass a denomination id as denominationId to send_order or basket_add_order to include a gift card in the envelope.",
+    "[READ-ONLY] List available physical gift card products and their price denominations. Returns array of {id, title, denominations: [{id, nominal, price}], raw}. Pass a denomination id as denominationId to send_order or basket_add_order to include a gift card in the envelope.",
     {},
-    { title: "List Gift Cards", readOnlyHint: true, destructiveHint: false },
+    { title: "List Gift Cards", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     async () => {
       try {
         const gcs = await client.giftCards.list();
@@ -264,14 +265,14 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "list_inserts",
-    "[READ-ONLY] List available card inserts (business cards, flyers, brochures) that can be physically included in the envelope with a card. Returns array of {id, name, description, image}. Pass the id as insertId to send_order or basket_add_order.",
+    "[READ-ONLY] List available card inserts (business cards, flyers, brochures) that can be physically included in the envelope with a card. Returns array of {id, title, imageUrl, raw}. Pass the id as insertId to send_order or basket_add_order.",
     {
       includeHistorical: z
         .boolean()
         .optional()
         .describe("If true, also return discontinued inserts"),
     },
-    { title: "List Card Inserts", readOnlyHint: true, destructiveHint: false },
+    { title: "List Card Inserts", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     async ({ includeHistorical }) => {
       try {
         const inserts = await client.inserts.list({ includeHistorical });
@@ -288,9 +289,9 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "list_qr_codes",
-    "[READ-ONLY] List QR codes created on this account. Returns array of {id, name, url, scan_count}. QR codes can be placed on custom cards via create_custom_card.",
+    "[READ-ONLY] List QR codes created on this account. Returns array of {id, title, url, raw}; scan information, when available, is under raw. QR codes can be placed on custom cards via create_custom_card.",
     {},
-    { title: "List QR Codes", readOnlyHint: true, destructiveHint: false },
+    { title: "List QR Codes", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     async () => {
       try {
         const qrs = await client.qrCodes.list();
@@ -310,7 +311,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
       iconId: z.number().optional().describe("Optional icon ID"),
       webhookUrl: z.string().optional().describe("Webhook URL to receive POST notifications when the QR code is scanned"),
     },
-    { title: "Create QR Code", destructiveHint: true, readOnlyHint: false },
+    { title: "Create QR Code", destructiveHint: false, readOnlyHint: false, openWorldHint: true },
     async (params) => {
       try {
         const qr = await client.qrCodes.create(params);
@@ -325,7 +326,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
     "delete_qr_code",
     "[DESTRUCTIVE — permanently deletes QR code] Permanently delete a QR code. This cannot be undone. Any custom cards using this QR code will no longer display it.",
     { qrCodeId: z.number().describe("ID of the QR code to delete") },
-    { title: "Delete QR Code", destructiveHint: true, readOnlyHint: false },
+    { title: "Delete QR Code", destructiveHint: true, readOnlyHint: false, openWorldHint: true },
     async ({ qrCodeId }) => {
       try {
         const result = await client.qrCodes.delete(qrCodeId);
@@ -338,9 +339,9 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "list_qr_code_frames",
-    "[READ-ONLY] List decorative border frames available for QR codes on custom cards. Returns array of {id, name, preview_url}. Pass the id as qrCodeFrameId to create_custom_card.",
+    "[READ-ONLY] List decorative border frames available for QR codes on custom cards. Returns backend frame records. Pass the returned id as qrCodeFrameId to create_custom_card.",
     {},
-    { title: "List QR Code Frames", readOnlyHint: true, destructiveHint: false },
+    { title: "List QR Code Frames", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     async () => {
       try {
         const frames = await client.qrCodes.frames();
@@ -357,9 +358,9 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "list_recipients",
-    "[READ-ONLY] List saved recipient (TO) addresses from the address book. Returns array of {id, firstName, lastName, street1, city, state, zip, company, birthday, anniversary}. Pass the id as 'recipient' to send_order or in the addressIds array to basket_add_order.",
+    "[READ-ONLY] List saved recipient (TO) addresses from the address book. Returns array of {id, firstName, lastName, street1, city, state, zip, company, raw}; optional birthday and anniversary fields are under raw. Pass the id as 'recipient' to send_order or in the addressIds array to basket_add_order.",
     {},
-    { title: "List Recipients", readOnlyHint: true, destructiveHint: false },
+    { title: "List Recipients", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     async () => {
       try {
         const recipients = await client.addressBook.listRecipients();
@@ -382,11 +383,11 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
       zip: z.string().describe("ZIP/postal code (e.g. '90210', '10001')"),
       street2: z.string().optional().describe("Address line 2"),
       company: z.string().optional().describe("Company name"),
-      countryId: z.string().optional().describe("Two-letter country code (default: 'US'). Call list_countries for valid codes."),
-      birthday: z.string().optional().describe("Recipient's birthday in YYYY-MM-DD format (for automated birthday cards)"),
-      anniversary: z.string().optional().describe("Recipient's anniversary in YYYY-MM-DD format (for automated anniversary cards)"),
+      countryId: z.string().regex(/^\d+$/).optional().describe("Numeric country ID as a string (from list_countries.id), not an ISO code."),
+      birthday: z.string().optional().describe("Optional birthday (YYYY-MM-DD); collect only if the user asks to save it for occasion-based mailings"),
+      anniversary: z.string().optional().describe("Optional anniversary (YYYY-MM-DD); collect only if the user asks to save it for occasion-based mailings"),
     },
-    { title: "Add Recipient Address", destructiveHint: true, readOnlyHint: false },
+    { title: "Add Recipient Address", destructiveHint: false, readOnlyHint: false, openWorldHint: false },
     async (params) => {
       try {
         const id = await client.addressBook.addRecipient(params);
@@ -410,11 +411,11 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
       zip: z.string().optional().describe("ZIP/postal code"),
       street2: z.string().optional().describe("Address line 2"),
       company: z.string().optional().describe("Company name"),
-      countryId: z.string().optional().describe("Country code"),
+      countryId: z.string().regex(/^\d+$/).optional().describe("Numeric country ID as a string (from list_countries.id), not an ISO code"),
       birthday: z.string().optional().describe("Birthday (YYYY-MM-DD)"),
       anniversary: z.string().optional().describe("Anniversary (YYYY-MM-DD)"),
     },
-    { title: "Update Recipient Address", destructiveHint: true, readOnlyHint: false },
+    { title: "Update Recipient Address", destructiveHint: true, readOnlyHint: false, openWorldHint: false },
     async (params) => {
       try {
         const id = await client.addressBook.updateRecipient(params);
@@ -435,7 +436,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
         .optional()
         .describe("Array of address IDs for batch delete"),
     },
-    { title: "Delete Recipient Address", destructiveHint: true, readOnlyHint: false },
+    { title: "Delete Recipient Address", destructiveHint: true, readOnlyHint: false, openWorldHint: false },
     async (params) => {
       try {
         const result = await client.addressBook.deleteRecipient(params);
@@ -448,9 +449,9 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "list_senders",
-    "[READ-ONLY] List saved sender (FROM / return) addresses from the address book. Returns array of {id, firstName, lastName, street1, city, state, zip, company, isDefault}. Pass the id as 'sender' to send_order or as returnAddressId to basket_add_order.",
+    "[READ-ONLY] List saved sender (FROM / return) addresses from the address book. Returns array of {id, firstName, lastName, street1, city, state, zip, company, raw}; default-address metadata is under raw. Pass the id as 'sender' to send_order or as returnAddressId to basket_add_order.",
     {},
-    { title: "List Sender Addresses", readOnlyHint: true, destructiveHint: false },
+    { title: "List Sender Addresses", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     async () => {
       try {
         const senders = await client.addressBook.listSenders();
@@ -473,10 +474,10 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
       zip: z.string().describe("ZIP/postal code"),
       street2: z.string().optional().describe("Address line 2"),
       company: z.string().optional().describe("Company name"),
-      countryId: z.string().optional().describe("Country code"),
+      countryId: z.string().regex(/^\d+$/).optional().describe("Numeric country ID as a string (from list_countries.id), not an ISO code"),
       default: z.boolean().optional().describe("If true, this becomes the default return address used when no sender is specified"),
     },
-    { title: "Add Sender Address", destructiveHint: true, readOnlyHint: false },
+    { title: "Add Sender Address", destructiveHint: true, readOnlyHint: false, openWorldHint: false },
     async (params) => {
       try {
         const id = await client.addressBook.addSender(params);
@@ -497,7 +498,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
         .optional()
         .describe("Array of address IDs for batch delete"),
     },
-    { title: "Delete Sender Address", destructiveHint: true, readOnlyHint: false },
+    { title: "Delete Sender Address", destructiveHint: true, readOnlyHint: false, openWorldHint: false },
     async (params) => {
       try {
         const result = await client.addressBook.deleteSender(params);
@@ -510,9 +511,9 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "list_countries",
-    "[READ-ONLY] List all countries Handwrytten can mail to. Returns array of {id, code, name}. Use the code as countryId when adding addresses.",
+    "[READ-ONLY] List all countries Handwrytten can mail to. Returns array of {id, code, name}. Use the numeric id, converted to a string, as countryId when adding addresses.",
     {},
-    { title: "List Countries", readOnlyHint: true, destructiveHint: false },
+    { title: "List Countries", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     async () => {
       try {
         const countries = await client.addressBook.countries();
@@ -525,14 +526,14 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "list_states",
-    "[READ-ONLY] List states/provinces for a given country. Returns array of {id, code, name}. Use the code as the 'state' parameter when adding addresses.",
+    "[READ-ONLY] List states/provinces for a given country. Returns array of {code, name, raw}. Use the code as the 'state' parameter when adding addresses.",
     {
       countryCode: z
         .string()
         .optional()
         .describe("Two-letter country code (default: 'US'). Use list_countries to see valid codes."),
     },
-    { title: "List States", readOnlyHint: true, destructiveHint: false },
+    { title: "List States", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     async ({ countryCode }) => {
       try {
         const states = await client.addressBook.states(countryCode);
@@ -550,12 +551,13 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
   registerAuthenticatedTool(server,
     "send_order",
     "[SENDS REAL MAIL — charges the user's account and mails a physical card] Always confirm card, message, recipient, and sender details with the user before calling. " +
-      "Send a real handwritten note via Handwrytten. This is the primary tool — it places " +
+      "Send a real handwritten note via Handwrytten. Requires an empty basket and confirmSend=true. Refuses to submit when pre-existing basket items exist. This tool places " +
       "an order that results in a physical card being written by a robot with a real pen " +
       "and mailed to the recipient. Use list_cards and list_fonts first to get valid IDs. " +
       "Recipients and senders must be saved address IDs (use add_recipient / add_sender first). " +
       "For bulk sends, pass an array of recipient IDs.",
     {
+      confirmSend: z.boolean().describe("Set true only after the user explicitly confirms submission and payment for ALL affected basket items."),
       cardId: z.string().describe("Card template ID (from list_cards). Must be a string, e.g. '1234'."),
       font: z.string().describe("Handwriting font ID or label (from list_fonts). e.g. '42' or 'Sarah'."),
       message: z.string().optional().describe("The handwritten message body. Character limit depends on the card size — typically 500-800 characters."),
@@ -591,10 +593,10 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
         .optional()
         .describe("Your own reference string for tracking this order in your systems (not printed on the card)."),
     },
-    { title: "Send Handwritten Card", destructiveHint: true, readOnlyHint: false },
+    { title: "Send Handwritten Card", destructiveHint: true, readOnlyHint: false, openWorldHint: true },
     async (params) => {
       try {
-        const result = await client.orders.send(params as any);
+        const result = await sendSingleOrder(client, params);
         return ok(result);
       } catch (e: any) {
         return err(e);
@@ -604,9 +606,9 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "get_order",
-    "[READ-ONLY] Get full details of a specific order including status, tracking info, card details, message, addresses, and pricing. Returns: id, status, tracking_link, card, message, address_from, address_to, price_structure, date_send, date_complete.",
+    "[READ-ONLY] Get full details of a specific order including status, tracking info, card details, message, addresses, and pricing. Returns normalized id, status, message, cardId, fontId, createdAt, trackingNumber and raw. Additional addresses, pricing and backend fields are under raw.",
     { orderId: z.string().describe("The order ID (numeric string, from send_order response or list_orders results)") },
-    { title: "Get Order Details", readOnlyHint: true, destructiveHint: false },
+    { title: "Get Order Details", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     async ({ orderId }) => {
       try {
         const order = await client.orders.get(orderId);
@@ -619,12 +621,12 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "list_orders",
-    "[READ-ONLY] List past orders with pagination. Returns paginated array of orders with id, status, card name, recipient, send date. Default: page 1.",
+    "[READ-ONLY] List past orders with pagination. Returns an array of normalized orders with id, status, message, cardId, fontId, createdAt, trackingNumber and raw; additional backend fields are under raw. Default: page 1.",
     {
       page: z.number().optional().describe("Page number, starting from 1 (default: 1)"),
       perPage: z.number().optional().describe("Number of orders per page (default: 20)"),
     },
-    { title: "List Orders", readOnlyHint: true, destructiveHint: false },
+    { title: "List Orders", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     async (params) => {
       try {
         const orders = await client.orders.list(params);
@@ -637,11 +639,11 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "list_past_baskets",
-    "[READ-ONLY] List previously submitted order baskets (groups of orders placed together). Returns paginated array of baskets with id, date, item count, total.",
+    "[READ-ONLY] List previously submitted order baskets (groups of orders placed together). Returns an array of backend basket records; available fields depend on the backend response.",
     {
       page: z.number().optional().describe("Page number"),
     },
-    { title: "List Past Baskets", readOnlyHint: true, destructiveHint: false },
+    { title: "List Past Baskets", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     async (params) => {
       try {
         const baskets = await client.orders.listPastBaskets(params);
@@ -675,7 +677,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
       dateSend: z.string().optional().describe("Schedule send date in YYYY-MM-DD format. Omit to send when basket is submitted."),
       clientMetadata: z.string().optional().describe("Your own reference/tracking string (not printed on card)."),
     },
-    { title: "Add to Basket", destructiveHint: true, readOnlyHint: false },
+    { title: "Add to Basket", destructiveHint: false, readOnlyHint: false, openWorldHint: false },
     async (params) => {
       try {
         const result = await client.basket.addOrder(params as any);
@@ -688,15 +690,16 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "basket_send",
-    "[SENDS REAL MAIL — charges the user's account and mails ALL orders in the basket] Always confirm with the user before calling. Submits every order in the basket for physical fulfillment. Cards will be handwritten and mailed. This charges the user's payment method. Returns: basket_id, items, price_structure.",
+    "[SENDS REAL MAIL — charges the user's account and mails ALL orders in the basket] Requires confirmSend=true after the user reviews and confirms ALL basket items and payment. Submits every order in the basket for physical fulfillment. Cards will be handwritten and mailed. This charges the user's payment method. Returns the backend submission response.",
     {
+      confirmSend: z.boolean().describe("Set true only after the user explicitly confirms submission and payment for ALL affected basket items."),
       couponCode: z.string().optional().describe("Coupon/promo code to apply for a discount (validated server-side)."),
-      testMode: z.boolean().optional().describe("If true, orders are validated but NOT actually sent or charged. Use for testing."),
+      testMode: z.boolean().optional().describe("Only for a dedicated Handwrytten test-mode account. Account test mode is verified before submitting; this is not a general dry-run switch."),
     },
-    { title: "Submit Basket", destructiveHint: true, readOnlyHint: false },
+    { title: "Submit Basket", destructiveHint: true, readOnlyHint: false, openWorldHint: true },
     async (params) => {
       try {
-        const result = await client.basket.send(params);
+        const result = await sendConfirmedBasket(client, params);
         return ok(result);
       } catch (e: any) {
         return err(e);
@@ -706,9 +709,9 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "basket_list",
-    "[READ-ONLY] List all orders currently in the basket (not yet submitted). Returns array of basket items with card, message, addresses, pricing. Use View-Basket app tool for a richer visual display.",
+    "[READ-ONLY] List all orders currently in the basket (not yet submitted). Returns the backend basket response containing items and available pricing metadata. Use View-Basket app tool for a richer visual display.",
     {},
-    { title: "List Basket Items", readOnlyHint: true, destructiveHint: false },
+    { title: "List Basket Items", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     async () => {
       try {
         const items = await client.basket.list();
@@ -723,7 +726,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
     "basket_count",
     "[READ-ONLY] Get the count of orders currently in the basket. Returns {count: number}. Quick check without fetching full item details.",
     {},
-    { title: "Get Basket Count", readOnlyHint: true, destructiveHint: false },
+    { title: "Get Basket Count", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     async () => {
       try {
         const count = await client.basket.count();
@@ -738,7 +741,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
     "basket_remove",
     "[DESTRUCTIVE — removes order from basket] Remove a single order from the basket. The order is discarded and not recoverable. Confirm with the user before calling.",
     { basketId: z.number().describe("Basket item ID to remove (from basket_list results)") },
-    { title: "Remove from Basket", destructiveHint: true, readOnlyHint: false },
+    { title: "Remove from Basket", destructiveHint: true, readOnlyHint: false, openWorldHint: false },
     async ({ basketId }) => {
       try {
         const result = await client.basket.remove(basketId);
@@ -753,7 +756,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
     "basket_clear",
     "[DESTRUCTIVE — removes ALL orders from basket] Permanently removes every order from the basket. None of the orders will be sent. Always confirm with the user before calling — this cannot be undone.",
     {},
-    { title: "Clear Basket", destructiveHint: true, readOnlyHint: false },
+    { title: "Clear Basket", destructiveHint: true, readOnlyHint: false, openWorldHint: false },
     async () => {
       try {
         const result = await client.basket.clear();
@@ -770,7 +773,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "list_custom_card_dimensions",
-    "[READ-ONLY] List available card sizes/formats for custom card designs. Returns array of {id, format (flat/folded), orientation (portrait/landscape), width, height}. Pass the id as dimensionId to create_custom_card.",
+    "[READ-ONLY] List available card sizes/formats for custom card designs. Returns array of {id, format, orientation, openWidth, openHeight, name, raw}. Pass the id as dimensionId to create_custom_card.",
     {
       format: z
         .string()
@@ -781,7 +784,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
         .optional()
         .describe("Filter by orientation: 'portrait' or 'landscape'"),
     },
-    { title: "List Card Dimensions", readOnlyHint: true, destructiveHint: false },
+    { title: "List Card Dimensions", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     async (params) => {
       try {
         const dims = await client.customCards.dimensions(params);
@@ -794,14 +797,14 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "upload_custom_image",
-    "[CREATES DATA] Upload an image from a URL for use in custom card designs. The image is downloaded and stored by Handwrytten. Returns {id, url, width, height}. Use imageType='cover' for full-bleed card faces, imageType='logo' for logos on the writing side. Pass the returned id to create_custom_card (as coverId, headerLogoId, mainLogoId, footerLogoId, or backLogoId).",
+    "[CREATES DATA] Upload an image from a URL for use in custom card designs. The image is downloaded and stored by Handwrytten. Returns {id, imageUrl, imageType, raw}; dimensions, when available, are under raw. Use imageType='cover' for full-bleed card faces, imageType='logo' for logos on the writing side. Pass the returned id to create_custom_card (as coverId, headerLogoId, mainLogoId, footerLogoId, or backLogoId).",
     {
       url: z.string().describe("Publicly accessible URL of the image (JPEG/PNG/GIF)"),
       imageType: z
         .enum(["cover", "logo"])
         .describe("'cover' for full-bleed front/back, 'logo' for writing-side logo"),
     },
-    { title: "Upload Custom Image", destructiveHint: true, readOnlyHint: false },
+    { title: "Upload Custom Image", destructiveHint: false, readOnlyHint: false, openWorldHint: true },
     async (params) => {
       try {
         const img = await client.customCards.uploadImage(params);
@@ -814,12 +817,12 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "check_custom_image",
-    "[READ-ONLY] Validate that an uploaded image meets print quality requirements (DPI, dimensions) for a specific card size. Returns {valid: boolean, issues: string[]}. Call this after upload_custom_image to verify before using in a design.",
+    "[READ-ONLY] Validate that an uploaded image meets print quality requirements (DPI, dimensions) for a specific card size. Returns the backend validation response; inspect its status, warnings and errors. Call this after upload_custom_image to verify before using in a design.",
     {
       imageId: z.number().describe("Image ID to check"),
       cardId: z.number().optional().describe("Optional card ID for dimension-specific checks"),
     },
-    { title: "Check Image Quality", readOnlyHint: true, destructiveHint: false },
+    { title: "Check Image Quality", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     async ({ imageId, cardId }) => {
       try {
         const result = await client.customCards.checkImage(imageId, cardId);
@@ -832,14 +835,14 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "list_custom_images",
-    "[READ-ONLY] List all images previously uploaded to this account for custom card designs. Returns array of {id, url, imageType, width, height}. Filter by type: 'cover' (full-bleed faces) or 'logo' (writing-side logos).",
+    "[READ-ONLY] List all images previously uploaded to this account for custom card designs. Returns array of {id, imageUrl, imageType, raw}. Filter by type: 'cover' (full-bleed faces) or 'logo' (writing-side logos).",
     {
       imageType: z
         .enum(["cover", "logo"])
         .optional()
         .describe("Filter by image type"),
     },
-    { title: "List Custom Images", readOnlyHint: true, destructiveHint: false },
+    { title: "List Custom Images", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     async ({ imageType }) => {
       try {
         const images = await client.customCards.listImages(imageType);
@@ -854,7 +857,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
     "delete_custom_image",
     "[DESTRUCTIVE — permanently deletes uploaded image] Permanently delete an uploaded custom image. Any custom card designs still referencing this image may display incorrectly. This cannot be undone.",
     { imageId: z.number().describe("Image ID to delete") },
-    { title: "Delete Custom Image", destructiveHint: true, readOnlyHint: false },
+    { title: "Delete Custom Image", destructiveHint: true, readOnlyHint: false, openWorldHint: false },
     async ({ imageId }) => {
       try {
         const result = await client.customCards.deleteImage(imageId);
@@ -960,7 +963,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
       qrCodeAlign: z.string().optional().describe("QR code alignment (left, center, right)"),
       qrCodeFrameId: z.number().optional().describe("QR code frame ID"),
     },
-    { title: "Create Custom Card", destructiveHint: true, readOnlyHint: false },
+    { title: "Create Custom Card", destructiveHint: false, readOnlyHint: false, openWorldHint: false },
     async (params) => {
       try {
         const card = await client.customCards.create(params as any);
@@ -975,7 +978,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
     "get_custom_card",
     "[READ-ONLY] Get full details of a custom card design including dimensions, cover images, text zones, logos, and QR code placement. Returns all configuration needed to understand or duplicate the design.",
     { cardId: z.number().describe("Custom card ID") },
-    { title: "Get Custom Card Details", readOnlyHint: true, destructiveHint: false },
+    { title: "Get Custom Card Details", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     async ({ cardId }) => {
       try {
         const card = await client.customCards.get(cardId);
@@ -990,7 +993,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
     "delete_custom_card",
     "[DESTRUCTIVE — permanently deletes custom card design] Permanently delete a custom card design. Orders already placed with this card are unaffected, but new orders cannot use it. This cannot be undone.",
     { cardId: z.number().describe("Custom card ID to delete") },
-    { title: "Delete Custom Card", destructiveHint: true, readOnlyHint: false },
+    { title: "Delete Custom Card", destructiveHint: true, readOnlyHint: false, openWorldHint: false },
     async ({ cardId }) => {
       try {
         const result = await client.customCards.delete(cardId);

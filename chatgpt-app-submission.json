@@ -1,0 +1,668 @@
+{
+  "$schema": "https://developers.openai.com/apps-sdk/schemas/chatgpt-app-submission.v1.json",
+  "schema_version": 1,
+  "app_info": {
+    "display_name": "Handwrytten",
+    "subtitle": "Send handwritten cards",
+    "description": "Handwrytten helps users browse stationery and handwriting styles, preview messages, manage saved addresses and custom card designs, prepare orders, and send physical handwritten cards through a connected Handwrytten account.",
+    "category": "BUSINESS"
+  },
+  "tools": {
+    "get_user": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Retrieves the connected account profile and balance without changing account records.",
+        "open_world_justification": "Only retrieves or computes data and does not publish content or modify third-party systems.",
+        "destructive_justification": "Does not delete, overwrite or submit orders for fulfillment."
+      }
+    },
+    "list_signatures": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Retrieves saved handwriting signature images without changing account records.",
+        "open_world_justification": "Only retrieves or computes data and does not publish content or modify third-party systems.",
+        "destructive_justification": "Does not delete, overwrite or submit orders for fulfillment."
+      }
+    },
+    "list_cards": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Lists and filters card templates without changing account records.",
+        "open_world_justification": "Only retrieves or computes data and does not publish content or modify third-party systems.",
+        "destructive_justification": "Does not delete, overwrite or submit orders for fulfillment."
+      }
+    },
+    "get_card": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Retrieves a selected card and its dimensions without changing account records.",
+        "open_world_justification": "Only retrieves or computes data and does not publish content or modify third-party systems.",
+        "destructive_justification": "Does not delete, overwrite or submit orders for fulfillment."
+      }
+    },
+    "list_card_categories": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Lists card categories without changing account records.",
+        "open_world_justification": "Only retrieves or computes data and does not publish content or modify third-party systems.",
+        "destructive_justification": "Does not delete, overwrite or submit orders for fulfillment."
+      }
+    },
+    "list_fonts": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Lists handwriting styles without changing account records.",
+        "open_world_justification": "Only retrieves or computes data and does not publish content or modify third-party systems.",
+        "destructive_justification": "Does not delete, overwrite or submit orders for fulfillment."
+      }
+    },
+    "list_customizer_fonts": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Lists printed fonts for custom card designs without changing account records.",
+        "open_world_justification": "Only retrieves or computes data and does not publish content or modify third-party systems.",
+        "destructive_justification": "Does not delete, overwrite or submit orders for fulfillment."
+      }
+    },
+    "list_gift_cards": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Lists physical gift card products and denominations without changing account records.",
+        "open_world_justification": "Only retrieves or computes data and does not publish content or modify third-party systems.",
+        "destructive_justification": "Does not delete, overwrite or submit orders for fulfillment."
+      }
+    },
+    "list_inserts": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Lists available physical card inserts without changing account records.",
+        "open_world_justification": "Only retrieves or computes data and does not publish content or modify third-party systems.",
+        "destructive_justification": "Does not delete, overwrite or submit orders for fulfillment."
+      }
+    },
+    "list_qr_codes": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Lists account QR codes without changing account records.",
+        "open_world_justification": "Only retrieves or computes data and does not publish content or modify third-party systems.",
+        "destructive_justification": "Does not delete, overwrite or submit orders for fulfillment."
+      }
+    },
+    "create_qr_code": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Creates a QR destination with an optional external scan-notification webhook and changes account state.",
+        "open_world_justification": "Changes a scannable QR destination or its externally observable behavior.",
+        "destructive_justification": "Creates new records or assets without deleting existing records or submitting mail for fulfillment."
+      }
+    },
+    "delete_qr_code": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Deletes an account QR code and affects its availability to scanners and changes account state.",
+        "open_world_justification": "Changes a scannable QR destination or its externally observable behavior.",
+        "destructive_justification": "Removes a QR code and can invalidate existing references to it."
+      }
+    },
+    "list_qr_code_frames": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Lists decorative QR code frames without changing account records.",
+        "open_world_justification": "Only retrieves or computes data and does not publish content or modify third-party systems.",
+        "destructive_justification": "Does not delete, overwrite or submit orders for fulfillment."
+      }
+    },
+    "list_recipients": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Retrieves saved recipient addresses without changing account records.",
+        "open_world_justification": "Only retrieves or computes data and does not publish content or modify third-party systems.",
+        "destructive_justification": "Does not delete, overwrite or submit orders for fulfillment."
+      }
+    },
+    "add_recipient": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Creates a saved recipient address and changes account state.",
+        "open_world_justification": "Changes records or assets in the connected Handwrytten account without submitting mail for fulfillment.",
+        "destructive_justification": "Creates new records or assets without deleting existing records or submitting mail for fulfillment."
+      }
+    },
+    "update_recipient": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Overwrites selected fields of a saved recipient address and changes account state.",
+        "open_world_justification": "Changes records or assets in the connected Handwrytten account without submitting mail for fulfillment.",
+        "destructive_justification": "Overwrites the selected saved recipient fields."
+      }
+    },
+    "delete_recipient": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Deletes selected saved recipient addresses and changes account state.",
+        "open_world_justification": "Changes records or assets in the connected Handwrytten account without submitting mail for fulfillment.",
+        "destructive_justification": "Deletes saved recipient address records."
+      }
+    },
+    "list_senders": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Retrieves saved return addresses without changing account records.",
+        "open_world_justification": "Only retrieves or computes data and does not publish content or modify third-party systems.",
+        "destructive_justification": "Does not delete, overwrite or submit orders for fulfillment."
+      }
+    },
+    "add_sender": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Creates a saved return address and can replace the default sender setting and changes account state.",
+        "open_world_justification": "Changes records or assets in the connected Handwrytten account without submitting mail for fulfillment.",
+        "destructive_justification": "Can replace the account default return-address setting."
+      }
+    },
+    "delete_sender": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Deletes selected saved return addresses and changes account state.",
+        "open_world_justification": "Changes records or assets in the connected Handwrytten account without submitting mail for fulfillment.",
+        "destructive_justification": "Deletes saved return-address records."
+      }
+    },
+    "list_countries": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Retrieves supported mailing countries without changing account records.",
+        "open_world_justification": "Only retrieves or computes data and does not publish content or modify third-party systems.",
+        "destructive_justification": "Does not delete, overwrite or submit orders for fulfillment."
+      }
+    },
+    "list_states": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Retrieves states or provinces for a selected country without changing account records.",
+        "open_world_justification": "Only retrieves or computes data and does not publish content or modify third-party systems.",
+        "destructive_justification": "Does not delete, overwrite or submit orders for fulfillment."
+      }
+    },
+    "send_order": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Adds orders and submits the account basket for payment and physical mailing and changes account state.",
+        "open_world_justification": "Can initiate physical delivery to recipients and payment processing.",
+        "destructive_justification": "Can charge the account and initiate irreversible physical mail fulfillment."
+      }
+    },
+    "get_order": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Retrieves an order and its status without changing account records.",
+        "open_world_justification": "Only retrieves or computes data and does not publish content or modify third-party systems.",
+        "destructive_justification": "Does not delete, overwrite or submit orders for fulfillment."
+      }
+    },
+    "list_orders": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Lists account orders without changing account records.",
+        "open_world_justification": "Only retrieves or computes data and does not publish content or modify third-party systems.",
+        "destructive_justification": "Does not delete, overwrite or submit orders for fulfillment."
+      }
+    },
+    "list_past_baskets": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Lists previously submitted baskets without changing account records.",
+        "open_world_justification": "Only retrieves or computes data and does not publish content or modify third-party systems.",
+        "destructive_justification": "Does not delete, overwrite or submit orders for fulfillment."
+      }
+    },
+    "basket_add_order": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Adds unsent orders to the account basket and changes account state.",
+        "open_world_justification": "Changes records or assets in the connected Handwrytten account without submitting mail for fulfillment.",
+        "destructive_justification": "Creates new records or assets without deleting existing records or submitting mail for fulfillment."
+      }
+    },
+    "basket_send": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Submits the account basket for payment and mailing unless test mode is selected and changes account state.",
+        "open_world_justification": "Can initiate physical delivery to recipients and payment processing.",
+        "destructive_justification": "Can charge the account and initiate irreversible physical mail fulfillment outside test mode."
+      }
+    },
+    "basket_list": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Retrieves current basket items without changing account records.",
+        "open_world_justification": "Only retrieves or computes data and does not publish content or modify third-party systems.",
+        "destructive_justification": "Does not delete, overwrite or submit orders for fulfillment."
+      }
+    },
+    "basket_count": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Counts current basket items without changing account records.",
+        "open_world_justification": "Only retrieves or computes data and does not publish content or modify third-party systems.",
+        "destructive_justification": "Does not delete, overwrite or submit orders for fulfillment."
+      }
+    },
+    "basket_remove": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Deletes one unsent basket item and changes account state.",
+        "open_world_justification": "Changes records or assets in the connected Handwrytten account without submitting mail for fulfillment.",
+        "destructive_justification": "Discards the selected unsent order."
+      }
+    },
+    "basket_clear": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Deletes all unsent basket items and changes account state.",
+        "open_world_justification": "Changes records or assets in the connected Handwrytten account without submitting mail for fulfillment.",
+        "destructive_justification": "Discards every unsent order in the basket."
+      }
+    },
+    "list_custom_card_dimensions": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Lists available custom card sizes and formats without changing account records.",
+        "open_world_justification": "Only retrieves or computes data and does not publish content or modify third-party systems.",
+        "destructive_justification": "Does not delete, overwrite or submit orders for fulfillment."
+      }
+    },
+    "upload_custom_image": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Downloads an image URL and stores a new account image asset and changes account state.",
+        "open_world_justification": "Fetches a user-specified external image URL to create a private account asset.",
+        "destructive_justification": "Creates new records or assets without deleting existing records or submitting mail for fulfillment."
+      }
+    },
+    "check_custom_image": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Checks an uploaded image against print requirements without changing account records.",
+        "open_world_justification": "Only retrieves or computes data and does not publish content or modify third-party systems.",
+        "destructive_justification": "Does not delete, overwrite or submit orders for fulfillment."
+      }
+    },
+    "list_custom_images": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Lists account image assets without changing account records.",
+        "open_world_justification": "Only retrieves or computes data and does not publish content or modify third-party systems.",
+        "destructive_justification": "Does not delete, overwrite or submit orders for fulfillment."
+      }
+    },
+    "delete_custom_image": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Deletes a stored account image asset and changes account state.",
+        "open_world_justification": "Changes records or assets in the connected Handwrytten account without submitting mail for fulfillment.",
+        "destructive_justification": "Removes a stored image that existing designs may reference."
+      }
+    },
+    "create_custom_card": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Creates a custom card design from selected assets and text and changes account state.",
+        "open_world_justification": "Changes records or assets in the connected Handwrytten account without submitting mail for fulfillment.",
+        "destructive_justification": "Creates new records or assets without deleting existing records or submitting mail for fulfillment."
+      }
+    },
+    "get_custom_card": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Retrieves a custom card design without changing account records.",
+        "open_world_justification": "Only retrieves or computes data and does not publish content or modify third-party systems.",
+        "destructive_justification": "Does not delete, overwrite or submit orders for fulfillment."
+      }
+    },
+    "delete_custom_card": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Deletes a custom card design and changes account state.",
+        "open_world_justification": "Changes records or assets in the connected Handwrytten account without submitting mail for fulfillment.",
+        "destructive_justification": "Removes a saved design used for future orders."
+      }
+    },
+    "Preview-Cards": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Retrieves card data and displays the card browsing interface without changing account records.",
+        "open_world_justification": "Only retrieves or computes data and does not publish content or modify third-party systems.",
+        "destructive_justification": "Does not delete, overwrite or submit orders for fulfillment."
+      }
+    },
+    "get_cards_detailed": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Retrieves filtered card details for the card browser without changing account records.",
+        "open_world_justification": "Only retrieves or computes data and does not publish content or modify third-party systems.",
+        "destructive_justification": "Does not delete, overwrite or submit orders for fulfillment."
+      }
+    },
+    "get_card_image": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Fetches an image and returns its bytes without changing account records.",
+        "open_world_justification": "Only retrieves or computes data and does not publish content or modify third-party systems.",
+        "destructive_justification": "Does not delete, overwrite or submit orders for fulfillment."
+      }
+    },
+    "Preview-Writing": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Renders a handwriting preview using the selected card dimensions without changing account records.",
+        "open_world_justification": "Only retrieves or computes data and does not publish content or modify third-party systems.",
+        "destructive_justification": "Does not delete, overwrite or submit orders for fulfillment."
+      }
+    },
+    "preview_writing": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Renders a handwriting image when preview parameters change without changing account records.",
+        "open_world_justification": "Only retrieves or computes data and does not publish content or modify third-party systems.",
+        "destructive_justification": "Does not delete, overwrite or submit orders for fulfillment."
+      }
+    },
+    "View-Basket": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Retrieves basket data and opens its visual summary without changing account records.",
+        "open_world_justification": "Only retrieves or computes data and does not publish content or modify third-party systems.",
+        "destructive_justification": "Does not delete, overwrite or submit orders for fulfillment."
+      }
+    },
+    "get_basket_summary": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Retrieves basket contents and computes a summary without changing account records.",
+        "open_world_justification": "Only retrieves or computes data and does not publish content or modify third-party systems.",
+        "destructive_justification": "Does not delete, overwrite or submit orders for fulfillment."
+      }
+    },
+    "basket_remove_item": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Deletes one unsent basket item selected in the basket interface and changes account state.",
+        "open_world_justification": "Changes records or assets in the connected Handwrytten account without submitting mail for fulfillment.",
+        "destructive_justification": "Discards the selected unsent order."
+      }
+    },
+    "basket_clear_all": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Deletes all unsent basket items from the basket interface and changes account state.",
+        "open_world_justification": "Changes records or assets in the connected Handwrytten account without submitting mail for fulfillment.",
+        "destructive_justification": "Discards every unsent order in the basket."
+      }
+    }
+  },
+  "test_cases": [
+    {
+      "description": "Browse stationery and preview writing on the selected card.",
+      "user_prompt": "Find thank-you cards and show how \u2018Thank you for your business!\u2019 looks on the card I select. Do not order anything.",
+      "file_attachment_urls": null,
+      "tools_triggered": "list_cards, list_fonts, Preview-Writing",
+      "expected_output": "Returns matching cards and renders the message using the selected card ID and font; no order is placed.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Save and retrieve a synthetic reviewer recipient.",
+      "user_prompt": "Save Jane Example at 123 Example Street, Phoenix, AZ 85001 as a test recipient, then show my saved recipients. Do not send mail.",
+      "file_attachment_urls": null,
+      "tools_triggered": "add_recipient, list_recipients",
+      "expected_output": "Creates the synthetic recipient in the reviewer account and returns its saved address ID; does not submit an order.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Prepare an unsent basket with reviewer fixtures.",
+      "user_prompt": "Using the card, font, recipient and sender IDs from my reviewer fixtures, add \u2018Thank you!\u2019 to my basket and show me the basket. Do not submit it.",
+      "file_attachment_urls": null,
+      "tools_triggered": "basket_add_order, View-Basket",
+      "expected_output": "Adds an unsent basket item and displays the chosen card, message, saved addresses and basket summary without charging or sending mail.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Validate a dedicated reviewer basket in test mode.",
+      "user_prompt": "Using the dedicated Handwrytten test-mode reviewer account, review all basket items and submit them in test mode. I confirm this test submission of the entire basket.",
+      "file_attachment_urls": null,
+      "tools_triggered": "basket_send",
+      "expected_output": "Review all items, then call basket_send with confirmSend=true and testMode=true. Refuse if the connected account is not in test mode. Report the backend result without claiming physical fulfillment.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Review order history without changing it.",
+      "user_prompt": "Show my recent orders and the details of the order I select.",
+      "file_attachment_urls": null,
+      "tools_triggered": "list_orders, get_order",
+      "expected_output": "Returns order history and the selected order details from the reviewer account without modifying or resubmitting orders.",
+      "expected_output_url": null
+    }
+  ],
+  "negative_test_cases": [
+    {
+      "description": "Email campaigns are out of scope.",
+      "user_prompt": "Email this newsletter to everyone in my address book.",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "Does not invoke Handwrytten tools; explains that the app sends physical handwritten cards rather than email campaigns.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Parcel shipments are out of scope.",
+      "user_prompt": "Book a courier pickup to ship a ten-pound package.",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "Does not invoke Handwrytten tools because parcel shipping and courier booking are not supported.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Calendar management is out of scope.",
+      "user_prompt": "Move my meeting tomorrow to 3 PM.",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "Does not invoke Handwrytten tools because calendar management is outside its supported workflows.",
+      "expected_output_url": null
+    }
+  ]
+}

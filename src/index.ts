@@ -118,6 +118,11 @@ async function runHttp(): Promise<void> {
 
   const app = createMcpExpressApp({ host: "0.0.0.0" });
 
+  // Public domain verification for the ChatGPT app submission.
+  app.get("/.well-known/openai-apps-challenge", (_req: Request, res: Response) => {
+    res.type("text/plain").send("iEJ5enJjvhO5Q2vLOjgY5BNuMHcEhtbuinVI3oCSEuU");
+  });
+
   // Parse URL-encoded bodies (OAuth token requests use application/x-www-form-urlencoded)
   app.use(urlencoded({ extended: true }));
 

@@ -33,10 +33,10 @@ export const resultSchemas: Record<string, z.ZodTypeAny> = {
   upload_custom_image: record({ id: z.number(), raw }), check_custom_image: raw,
   list_custom_images: z.array(record({ id: z.number(), raw })), delete_custom_image: raw,
   create_custom_card: record({ cardId: z.number(), raw }), get_custom_card: record({ cardId: z.number(), raw }), delete_custom_card: raw,
-  "Preview-Cards": record({ cards: z.array(raw) }), get_cards_detailed: record({ cards: z.array(raw), page: z.number(), perPage: z.number() }),
+  "preview_cards": record({ cards: z.array(raw) }), get_cards_detailed: record({ cards: z.array(raw), page: z.number(), perPage: z.number() }),
   get_card_image: record({ imageAvailable: z.literal(true), mimeType: z.string() }),
-  "Preview-Writing": writing, preview_writing: writing,
-  "View-Basket": basket, get_basket_summary: basket,
+  "preview_writing": writing, render_writing_preview: writing,
+  "view_basket": basket, get_basket_summary: basket,
   basket_remove_item: record({ success: z.boolean(), result: raw }), basket_clear_all: record({ success: z.boolean(), result: raw }),
 };
 

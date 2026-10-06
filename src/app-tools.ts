@@ -32,7 +32,13 @@ import { renderCardToSvgServer } from "./server-postcard-renderer.js";
 import { registerAuthenticatedTool, toolError } from "./tool-auth.js";
 
 function registerAppTool(server: McpServer, name: string, config: any, callback: (...args: any[]) => any) {
-  return registerRawAppTool(server, name, { ...config, outputSchema: outputSchemaFor(name) }, withStructuredResult(name, callback));
+  const ui = config._meta?.ui;
+  const meta = { ...config._meta,
+    ...(ui?.resourceUri ? { "openai/outputTemplate": ui.resourceUri } : {}),
+    "openai/widgetAccessible": true,
+    ...(ui?.visibility?.length === 1 && ui.visibility[0] === "app" ? { "openai/visibility": "private" } : {}),
+  };
+  return registerRawAppTool(server, name, { ...config, inputSchema: z.object(config.inputSchema).strict(), _meta: meta, outputSchema: outputSchemaFor(name) }, withStructuredResult(name, callback));
 }
 
 /**
@@ -120,12 +126,12 @@ export function registerAppTools(
 
   registerAppTool(
     server,
-    "Preview-Cards",
+    "preview_cards",
     {
-      title: "Browse Cards",
+      title: "Preview Cards",
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
       description:
-        "[READ-ONLY] Open an interactive card browser with 3D flip animation. Browse card templates showing front, inside, and back views with card name and price. Click 'Select' to choose a card for ordering. No data is modified.",
+        "Open an interactive card browser with 3D flip animation. Browse card templates showing front, inside, and back views with card name and price. Click 'Select' to choose a card for ordering. No data is modified.",
       inputSchema: {
         categoryId: z
           .number()
@@ -153,7 +159,7 @@ export function registerAppTools(
               (categoryId ? `&where[category_id]=${categoryId}` : "") +
               (query
                 ? `&like[name]=${encodeURIComponent(query)}`
-                : "&randomise=1")
+                : "")
           ) as Promise<any>,
         ]);
 
@@ -177,7 +183,7 @@ export function registerAppTools(
           content: [
             {
               type: "text",
-              text: JSON.stringify({ categories, cards, page: 1, serverUrl: serverUrl || "" }, null, 2),
+              text: JSON.stringify({ categories, cards, page: 1, categoryId, query, serverUrl: serverUrl || "" }, null, 2),
             },
           ],
         };
@@ -190,11 +196,11 @@ export function registerAppTools(
   // Tool for the card preview app to fetch more cards
   registerAuthenticatedTool(server,
     "get_cards_detailed",
-    "[READ-ONLY] Fetch paginated cards with front/inside/back image URLs. Used internally by the card preview app — not intended for direct use. Returns {cards, page, perPage}.",
+    "Fetch a page of card templates with front, inside and back image URLs when the card browser loads or filters results. Returns {cards, page, perPage}; defaults to 10 cards, maximum 50. Does not change account data.",
     {
       categoryId: z.number().optional().describe("Filter to a single category ID (from list_card_categories)"),
-      page: z.number().optional().describe("Page number, starting from 1 (default: 1)"),
-      perPage: z.number().optional().describe("Cards per page, 1-50 (default: 20)"),
+      page: z.number().int().positive().optional().describe("Page number, starting from 1 (default: 1)"),
+      perPage: z.number().int().min(1).max(50).optional().describe("Cards per page, 1-50 (default: 10)"),
       query: z.string().optional().describe("Search cards by name (case-insensitive partial match)"),
     },
     { title: "Fetch Card Data", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
@@ -209,7 +215,7 @@ export function registerAppTools(
             (categoryId ? `&where[category_id]=${categoryId}` : "") +
             (query
               ? `&like[name]=${encodeURIComponent(query)}`
-              : "&randomise=1")
+              : "")
         )) as any;
 
         const cards = (data?.cards ?? []).map((c: any) => ({
@@ -240,7 +246,7 @@ export function registerAppTools(
   // Tool for the card preview app to fetch images (bypasses sandbox CSP)
   registerAuthenticatedTool(server,
     "get_card_image",
-    "[READ-ONLY] Fetch an image from the Handwrytten CDN and return it as a base64 MCP image block. Used internally by UI apps to bypass iframe CSP restrictions — not intended for direct use. Only allows URLs from cdn.handwrytten.com or d3e924qpzqov0g.cloudfront.net.",
+    "Fetch an image from the Handwrytten CDN and return it as a base64 MCP image block. Used internally by UI apps to bypass iframe CSP restrictions — not intended for direct use. Only allows URLs from cdn.handwrytten.com or d3e924qpzqov0g.cloudfront.net.",
     {
       url: z.string().describe("Full HTTPS URL of the image on cdn.handwrytten.com or d3e924qpzqov0g.cloudfront.net"),
     },
@@ -304,12 +310,12 @@ export function registerAppTools(
 
   registerAppTool(
     server,
-    "Preview-Writing",
+    "preview_writing",
     {
       title: "Preview Writing",
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
       description:
-        "[READ-ONLY] Render a live preview of how a handwritten message will look on a card. Shows the message in the selected handwriting font as a PNG image. Supports changing fonts interactively. No data is modified.",
+        "Render a live preview of how a handwritten message will look on a card. Shows the message in the selected handwriting font as a PNG image. Supports changing fonts interactively. No data is modified.",
       inputSchema: {
         message: z.string().describe("The message text to preview"),
         fontId: z
@@ -361,8 +367,10 @@ export function registerAppTools(
               f.label?.toLowerCase() === fontId.toLowerCase() ||
               f.name?.toLowerCase() === fontId.toLowerCase()
           );
-          if (match) selectedFont = match;
+          if (!match) throw new Error("Requested handwriting font was not found. Use list_fonts to select an available font.");
+          selectedFont = match;
         }
+        if (!selectedFont) throw new Error("No handwriting fonts are available for this account.");
 
         const card = writingDimensions(cardData);
 
@@ -372,7 +380,7 @@ export function registerAppTools(
 
         if (selectedFont.mainFontUrl) {
           try {
-            const fontRes = await fetch(selectedFont.mainFontUrl);
+            const fontRes = await fetch(selectedFont.mainFontUrl, { signal: AbortSignal.timeout(15000) });
             if (fontRes.ok) {
               const fontBuffer = Buffer.from(await fontRes.arrayBuffer());
               const font = opentype.parse(fontBuffer.buffer.slice(
@@ -401,11 +409,13 @@ export function registerAppTools(
             }
           } catch (fontErr: any) {
             renderError = fontErr.message;
-            console.error("[preview_writing] Error:", fontErr.message);
+            console.error("[render_writing_preview] Error:", fontErr.message);
           }
         } else {
           renderError = "No font URL found for selected font";
         }
+
+        if (renderError || !pngBase64) throw new Error(renderError || "Writing preview could not be rendered.");
 
         // Pass the PNG to the app iframe via _meta (a UI-only channel that the
         // host forwards to the app but does NOT put into the model's context).
@@ -439,14 +449,14 @@ export function registerAppTools(
 
   // Tool for the writing preview app to re-render with a different font.
   // visibility: ["app"] hides it from the model (so the model can only pick
-  // the Preview-Writing app tool, which spawns the iframe) while keeping it
+  // the preview_writing app tool, which spawns the iframe) while keeping it
   // callable by the iframe via app.callServerTool.
   registerAppTool(
     server,
-    "preview_writing",
+    "render_writing_preview",
     {
       description:
-        "[READ-ONLY] Re-render a handwriting preview with different parameters. Used internally by the writing preview app — not intended for direct use. Returns a PNG image.",
+        "Re-render the writing preview when a user changes its font or message in the preview interface. Returns selected-font metadata and a PNG in UI-only metadata. Does not save a design or place an order.",
       inputSchema: {
         fontId: z.string().describe("Font ID or label (from list_fonts)"),
         message: z.string().describe("The message text to render in handwriting"),
@@ -481,7 +491,8 @@ export function registerAppTools(
             f.label?.toLowerCase() === fontId.toLowerCase() ||
             f.name?.toLowerCase() === fontId.toLowerCase()
         );
-        if (match) selectedFont = match;
+        if (!match) throw new Error("Requested handwriting font was not found. Use list_fonts to select an available font.");
+        selectedFont = match;
 
         const card = writingDimensions(cardData);
 
@@ -490,7 +501,7 @@ export function registerAppTools(
 
         if (selectedFont.mainFontUrl) {
           try {
-            const fontRes = await fetch(selectedFont.mainFontUrl);
+            const fontRes = await fetch(selectedFont.mainFontUrl, { signal: AbortSignal.timeout(15000) });
             if (fontRes.ok) {
               const fontBuffer = Buffer.from(await fontRes.arrayBuffer());
               const font = opentype.parse(fontBuffer.buffer.slice(
@@ -511,11 +522,16 @@ export function registerAppTools(
                 font
               );
               pngBase64 = svgToPng(svg).toString("base64");
+            } else {
+              renderError = `Font fetch failed: HTTP ${fontRes.status}`;
             }
           } catch (fontErr: any) {
             renderError = fontErr.message;
           }
+        } else {
+          renderError = "No font URL found for selected font";
         }
+        if (renderError || !pngBase64) throw new Error(renderError || "Writing preview could not be rendered.");
 
         return {
           content: [
@@ -563,12 +579,12 @@ export function registerAppTools(
 
   registerAppTool(
     server,
-    "View-Basket",
+    "view_basket",
     {
       title: "View Basket",
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
       description:
-        "[READ-ONLY] Open a visual summary of the current basket contents. Shows each order with card preview image, recipient/sender addresses, message preview, per-order pricing breakdown, and an estimated subtotal. Supports removing individual items or clearing the basket from within the UI.",
+        "Open a visual summary of up to 50 current basket groups. Large or grouped baskets may not display every individual order. Shows each order with card preview image, recipient/sender addresses, message preview, per-order pricing breakdown, and an estimated subtotal. Supports removing individual items or clearing the basket from within the UI.",
       inputSchema: {},
       _meta: {
         ui: {
@@ -612,7 +628,7 @@ export function registerAppTools(
           status: item.status,
         }));
 
-        const count = countRaw?.count ?? items.length;
+        const count = Number(countRaw?.count ?? items.length);
 
         // Do not fabricate tax or credits when the API supplies only item subtotals.
         const checkout = estimateBasket(items, Number(count));
@@ -634,7 +650,7 @@ export function registerAppTools(
   // Tool for the basket app to refresh data
   registerAuthenticatedTool(server,
     "get_basket_summary",
-    "[READ-ONLY] Fetch current basket items with card details, addresses, pricing, and an estimated subtotal. Used internally by the basket summary app — not intended for direct use. Returns {items, count, checkout}.",
+    "Refresh up to 50 basket groups with card details, addresses, pricing, and an estimated subtotal when the basket interface refreshes. The count may exceed the displayed groups. Returns {items, count, checkout}.",
     {},
     { title: "Fetch Basket Summary", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     async () => {
@@ -671,7 +687,7 @@ export function registerAppTools(
           status: item.status,
         }));
 
-        const count = countRaw?.count ?? items.length;
+        const count = Number(countRaw?.count ?? items.length);
 
         const checkout = estimateBasket(items, Number(count));
 
@@ -692,7 +708,7 @@ export function registerAppTools(
   // Tool for the basket app to remove a single item
   registerAuthenticatedTool(server,
     "basket_remove_item",
-    "[DESTRUCTIVE — removes order from basket] Remove a single order from the basket. The order is discarded permanently. Used by the basket summary app.",
+    "Remove a single order from the basket. The order is discarded permanently. Used by the basket summary app.",
     {
       basketId: z.number().describe("Basket item ID to remove (from get_basket_summary results)"),
     },
@@ -712,7 +728,7 @@ export function registerAppTools(
   // Tool for the basket app to clear all items
   registerAuthenticatedTool(server,
     "basket_clear_all",
-    "[DESTRUCTIVE — removes ALL orders from basket] Always confirm with the user before calling. Permanently removes every order from the basket. None will be sent. Used by the basket summary app.",
+    "Always confirm with the user before calling. Permanently removes every order from the basket. None will be sent. Used by the basket summary app.",
     {},
     { title: "Clear All Basket Items", destructiveHint: true, readOnlyHint: false, openWorldHint: false },
     async () => {

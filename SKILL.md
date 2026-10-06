@@ -11,13 +11,13 @@ You have access to the Handwrytten API, which sends real handwritten notes using
 ## Typical Workflow
 
 1. **Browse options first**: Call `list_cards` and `list_fonts` to discover available card templates and handwriting styles before sending.
-2. **Send the note**: Call `send_order` with a card ID, font ID, message, and sender address and recipient address. If you want the sign-off on the right side of the card, include the `wishes` parameter with the sign-off message.
-3. **Confirm to the user**: Always tell the user what card, font, and message you selected, and confirm before placing an order that costs money.
+2. **Review the note**: Show the card, font, message, saved recipient and sender IDs and payment implications. Use `preview_writing` when a handwriting preview is requested. Confirm before submitting an order.
+3. **Send the confirmed note**: Call `send_order` with `confirmSend=true` and saved address IDs. It requires an empty basket. Use `wishes` for the closing text. Report the actual backend result; an error does not establish whether a submission occurred.
 
 ## Key Tools
 
 ### Sending Notes (Core)
-- `send_order` — The primary tool. Sends a handwritten note. Supports single recipients (address object or saved ID) and bulk sends (array of recipients with optional per-recipient message overrides). Always call `list_cards` and `list_fonts` first.
+- `send_order` — Submit a confirmed handwritten card order using one saved recipient ID or an array of saved IDs. All recipients receive the same message. Requires an empty basket and `confirmSend=true`; can charge the account and initiate physical mailing.
 - `get_order` / `list_orders` — Check order status and history.
 
 ### Browsing Cards & Fonts
@@ -34,7 +34,6 @@ You have access to the Handwrytten API, which sends real handwritten notes using
 - `list_gift_cards` — Browse gift cards to attach to orders (pass `denominationId` to `send_order`).
 - `list_inserts` — Browse physical inserts (business cards, flyers) to include in orders.
 - `list_signatures` — List saved handwriting signatures.
-- `calculate_targets` — Prospect mailing targets by ZIP code and radius.
 
 ### Custom Cards (Advanced)
 For creating custom card designs with logos, images, and printed text:
@@ -57,6 +56,6 @@ For building up multiple orders before submitting them together:
 - **Always browse before sending.** Call `list_cards` and `list_fonts` before `send_order` so you use valid IDs.
 - **Confirm before ordering.** Sending a note costs money and results in a physical card being mailed. Always confirm the details with the user before calling `send_order`.
 - **Addresses require:** firstName, lastName, street1, city, state, zip. Country defaults to US.
-- **Bulk sends:** Pass an array of recipients to `send_order`. Each recipient can have per-recipient `message` and `wishes` overrides.
+- **Bulk sends:** Pass an array of saved recipient IDs to `send_order`. Per-recipient message overrides are not exposed by this MCP tool.
 - **Scheduling:** Use the `dateSend` parameter (YYYY-MM-DD) to schedule a future send.
 - **Account balance:** Call `get_user` to check the user's credits balance.

@@ -390,16 +390,6 @@ export function registerPrompts(server: McpServer): void {
   // PROSPECTING
   // ═══════════════════════════════════════════════════════════════════════════
 
-  server.prompt(
-    "prospect-by-zip",
-    "Find mailing targets by ZIP code and radius for outreach campaigns",
-    {
-      zipCode: z.string().describe("Center ZIP code"),
-      radiusMiles: z.string().optional().describe("Radius in miles (default: 5)"),
-    },
-    ({ zipCode, radiusMiles }) =>
-      userMsg(`How many mailing targets are available within ${radiusMiles || "5"} miles of ZIP code ${zipCode}? Calculate the target count for a prospecting campaign.`)
-  );
 
   // ═══════════════════════════════════════════════════════════════════════════
   // PREVIEWS

@@ -44,7 +44,7 @@ test("both preview tools render the selected card through the real SDK HTTP laye
   const [a, b] = InMemoryTransport.createLinkedPair();
   try {
     await server.connect(b); await client.connect(a);
-    for (const name of ["Preview-Writing", "preview_writing"]) {
+    for (const name of ["preview_writing", "render_writing_preview"]) {
       const result = await client.callTool({ name, arguments: { cardId: "100", fontId: "test", message: "Hello" } });
       assert.ok(!result.isError, JSON.stringify(result));
       const data = JSON.parse((result.content as any[])[0].text);

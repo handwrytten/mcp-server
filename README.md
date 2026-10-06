@@ -7,7 +7,7 @@ What can't it do!
 
 Once connected, your AI assistant can:
 
-- **Send handwritten notes** — single or bulk, with per-recipient customization
+- **Send handwritten notes** — single or bulk using saved recipient IDs
 - **Browse cards and fonts** — discover available stationery templates and handwriting styles
 - **Manage addresses** — save, update, and delete recipient and sender addresses
 - **Create custom cards** — upload images, add logos and text, design your own cards

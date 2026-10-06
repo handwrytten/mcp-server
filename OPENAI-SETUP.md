@@ -84,7 +84,7 @@ The original six advertised OAuth scopes are retained. Do not add read:cards, wr
 
 Existing tool-level CSP declarations are retained, alongside standard resource CSP in resource listings and resource contents. Resource CSP allows data: images and only https://cdn.handwrytten.com and https://d3e924qpzqov0g.cloudfront.net. Browser network connections are disabled; tool calls use the host bridge. No wildcard, blob:, or S3 allowance is declared. These declarations have local serialization tests; that does not establish host rendering compatibility.
 
-Commit 61eb87c reverts 735cfc3 without explaining why. Live verification remains required for each of Preview-Cards, Preview-Writing, and View-Basket in Claude web, Claude Desktop, and ChatGPT. Check card images, initial writing image and rerender, basket images, and host CSP errors. Use an existing test basket; no real sends are required. All nine host/app combinations are currently unverified on this branch.
+Commit 61eb87c reverts 735cfc3 without explaining why. Live verification remains required for each of preview_cards, preview_writing, and view_basket in Claude web, Claude Desktop, and ChatGPT. Check card images, initial writing image and rerender, basket images, and host CSP errors. Use an existing test basket; no real sends are required. All nine host/app combinations are currently unverified on this branch.
 
 Discovery advertises S256 PKCE only. Backend enforcement is separate; changing discovery does not reject direct plain-PKCE requests in the backend.
 
@@ -106,3 +106,43 @@ Discovery advertises S256 PKCE only. Backend enforcement is separate; changing d
 Deploy the changes and refresh tool metadata in the clients before testing. Verify all three previews in ChatGPT, Claude web and Claude Desktop, including images, font changes with a card ID, estimated pricing and CSP errors. Run write tests only in the confirmed test-mode account. Local mocked tests do not establish live host or fulfillment compatibility.
 
 Single-order preflight/count checks cannot prevent another client changing the basket between validation and submission. Atomic item/version enforcement and retry idempotency require backend support. Do not claim those guarantees in submission copy. Keep the detailed backend security handoff internal.
+
+## Rejection remediation (October 2026)
+
+The repository submission JSON is a review worksheet; it is not evidence that the dashboard contains the same cases. Copy the revised cases into the submission workflow used for this app and verify the final submitted metadata. Do not treat automated mocked tests as ChatGPT web/mobile acceptance tests.
+
+### Code corrections
+
+- Renamed `Preview-Cards` to `preview_cards`, `Preview-Writing` to `preview_writing`, `View-Basket` to `view_basket`, and the old internal `preview_writing` to `render_writing_preview`. This removes the writing-tool collision after client name normalization. Refresh existing connector metadata after deployment; callers using old tool names must update.
+- UI helpers declare app-only visibility. Widget entry tools expose both MCP Apps resource metadata and the ChatGPT output-template compatibility field. Descriptions state behavior without promotional prefixes or steering users from drafting into sending.
+- The SDK adapter now calls `orders/details?id=...`, unwraps the `order` response, and uses `limit` for order pagination. SDK 1.6.0 used `orders/get/:id` and `per_page`, which do not match the checked-in backend routes and middleware.
+- Custom card lookup now unwraps the backend `card` envelope instead of returning a successful card ID of zero. The Node engine declaration now matches the existing Vite and `import.meta` requirements: Node 20.19.x or 22.12+.
+- Missing card categories return no matches; matching category names include all matching IDs. Card browsing no longer randomizes each page independently, and the widget retains the original category/search filters.
+- Both handwriting tools reject unknown fonts and report missing or failed font downloads as errors. Font fetches have a timeout. The writing widget displays failure text without interpreting it as HTML.
+- Basket previews normalize numeric counts. The send button is disabled for partial/grouped recipient views. An uncertain submission directs the user to order history instead of encouraging an immediate retry. Remove/clear failures no longer appear successful in the widget.
+- Removed the unsupported prospecting prompt and corrected the packaged usage skill's address and per-recipient-message claims.
+
+### Repeatable reviewer setup
+
+Use a dedicated account whose **backend** `test_mode` is enabled. Configure that account with working billing/test fixtures as required by the backend. Reviewer credentials belong in the dashboard's secure credential form, never in this repository or chat.
+
+1. Save exactly one sender named **Reviewer Sender**, using a validated postal address controlled by your organization. This avoids relying on the invented `123 Example Street` address passing backend address validation.
+2. Remove old Jane Example reviewer recipients and old reviewer basket drafts through the account UI before each run. Do not clear a production user's basket.
+3. Confirm at least one thank-you card, a downloadable handwriting font, and one test order in history exist. Run cases 1–5 in order; case 2 creates Jane Example, case 3 creates one draft, and case 4 submits it in test mode. For isolated repeats, restore these preconditions first.
+4. Use the exact prompts and expected results in `chatgpt-app-submission.json`. IDs are discovered from tool results rather than invented or supplied through undocumented fixtures. If required data is missing, clarification is correct behavior, but that run is not a passing positive test.
+5. Repeat all five positive and three negative cases on **ChatGPT web and the mobile client(s) submitted for review**. Record client/version, deployed commit, prompt, tool arguments, result, visible widget outcome and date. Also verify font changes, card pagination/filter retention, empty results, expired-login reconnect, and refusal of test submissions on live accounts.
+6. Record a new walkthrough only after those runs pass. Refresh tool metadata in the dashboard, verify annotation justifications against the deployed tool list, then resubmit.
+
+### Verification boundary
+
+`npm test` uses intercepted backend requests plus real MCP serialization, SDK conversion, local HTTP/auth routes and PNG rendering. `tests/review-regressions.test.ts` adds the rejection-specific cases. These checks do not execute ChatGPT's model selection or prove mobile widget rendering, live OAuth access, backend address validation, billing or fulfillment. The three negative prompts require client evaluation: they test model tool selection, not an MCP endpoint.
+
+Remaining integration risks: the OAuth registration endpoint distributes existing per-product credentials rather than provisioning independent clients; backend redirect allowlists remain authoritative. Sending still lacks atomic basket-version enforcement and idempotency. These existing limitations are not resolved by this remediation.
+
+### MCP-builder follow-up fixes
+
+- All SDK and adapter HTTP clients now force one request attempt, including when a caller supplies a larger retry setting. This also disables automatic read retries. A failed or timed-out write is not replayed; check order history and basket state before deciding whether to retry manually. This does not provide backend idempotency or prevent retries initiated by another client.
+- All API and widget tools use strict input schemas. Unknown arguments return an input error before backend access. In particular, `send_order` rejects `testMode` instead of silently dropping it. Only `basket_send` supports the verified test-mode workflow.
+- Card and basket widgets share HTML escaping that covers quotes as well as text delimiters. Prices are formatted as numbers, and dynamic IDs, dates and bulk counts are escaped before template insertion.
+- Missing, blank, nonnumeric, nonfinite or negative prices show `Unavailable`. Genuine numeric zero remains `$0.00`; individual item subtotals no longer default to zero.
+- Regression coverage includes HTTP 500/429 responses, connection loss and timeout after writes; strict argument rejection through real MCP calls; attribute escaping; and missing-versus-zero prices.

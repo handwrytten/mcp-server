@@ -1,6 +1,6 @@
 import type { McpServer, ToolCallback } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult, ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
-import type { ZodRawShape } from "zod";
+import { z, type ZodRawShape } from "zod";
 import { outputSchemaFor, withStructuredResult } from "./tool-results.js";
 
 // Preserve the original advertised scopes until backend client allowlists
@@ -8,6 +8,10 @@ import { outputSchemaFor, withStructuredResult } from "./tool-results.js";
 export const OAUTH_SCOPES = [
   "read:profile", "send:cards", "read:orders", "read:contacts", "write:contacts", "read:balance",
 ];
+
+const APP_ONLY_TOOLS = new Set([
+  "get_cards_detailed", "get_card_image", "get_basket_summary", "basket_remove_item", "basket_clear_all",
+]);
 
 // OAuth is advertised at the server level; the installed SDK cannot emit
 // top-level tool securitySchemes. Do not emit an incomplete _meta-only mirror.
@@ -19,13 +23,15 @@ export function registerAuthenticatedTool<Args extends ZodRawShape>(
   annotations: ToolAnnotations,
   callback: ToolCallback<Args>,
 ) {
+  const strictInput = z.object(inputSchema).strict();
   return server.registerTool(name, {
     title: annotations.title,
     description,
-    inputSchema,
+    inputSchema: strictInput,
     outputSchema: outputSchemaFor(name),
     annotations,
-  }, withStructuredResult(name, callback));
+    ...(APP_ONLY_TOOLS.has(name) ? { _meta: { ui: { visibility: ["app"] }, "openai/visibility": "private", "openai/widgetAccessible": true } } : {}),
+  }, withStructuredResult(name, callback) as ToolCallback<typeof strictInput>);
 }
 
 export function toolError(error: unknown, oauthServerUrl?: string): CallToolResult {

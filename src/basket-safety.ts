@@ -15,7 +15,7 @@ export async function requireEmptyBasket(client: Handwrytten) {
   const response = await (client as any)._http.get("basket/count");
   const count = Number(response?.count);
   if (response?.count == null || !Number.isInteger(count) || count !== 0) {
-    throw new Error("Single-order send requires an empty basket. Review existing items with View-Basket, then explicitly submit the whole basket with basket_send if desired.");
+    throw new Error("Single-order send requires an empty basket. Review existing items with view_basket, then explicitly submit the whole basket with basket_send if desired.");
   }
 }
 

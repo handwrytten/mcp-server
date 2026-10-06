@@ -8,6 +8,7 @@
 import { App } from "@modelcontextprotocol/ext-apps";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import "./basket-summary.css";
+import { escapeHtml, formatPrice } from "./formatting.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -162,17 +163,6 @@ async function processImageQueue() {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function escapeHtml(str: string): string {
-  const div = document.createElement("div");
-  div.textContent = str;
-  return div.innerHTML;
-}
-
-function formatPrice(amount: number | undefined | null): string {
-  if (amount == null || amount === 0) return "$0.00";
-  return `$${Number(amount).toFixed(2)}`;
-}
-
 function formatAddress(addr?: Address): string {
   if (!addr) return "—";
   const parts: string[] = [];
@@ -224,7 +214,7 @@ function renderBasketItem(item: BasketItem): HTMLElement {
   let badges = "";
   if (item.test_mode) badges += '<span class="test-badge">TEST</span> ';
   if (item.is_bulk && item.children_total && item.children_total > 1) {
-    badges += `<span class="bulk-badge">${item.children_total} recipients</span> `;
+    badges += `<span class="bulk-badge">${escapeHtml(item.children_total)} recipients</span> `;
   }
 
   // Price breakdown items
@@ -237,7 +227,7 @@ function renderBasketItem(item: BasketItem): HTMLElement {
     if (ps.shipping) priceItems.push(`<div class="price-item"><span class="price-item-label">Shipping:</span><span class="price-item-value">${formatPrice(ps.shipping)}</span></div>`);
     if (ps.delivery_confirmation) priceItems.push(`<div class="price-item"><span class="price-item-label">Delivery Confirm:</span><span class="price-item-value">${formatPrice(ps.delivery_confirmation)}</span></div>`);
   }
-  const subtotal = ps?.sub_total ?? item.sub_total ?? 0;
+  const subtotal = ps?.sub_total ?? item.sub_total;
   priceItems.push(`<div class="price-item"><span class="price-item-label">Subtotal:</span><span class="price-item-value" style="font-weight:700; color:#ee6723">${formatPrice(subtotal)}</span></div>`);
 
   el.innerHTML = `
@@ -255,7 +245,7 @@ function renderBasketItem(item: BasketItem): HTMLElement {
           ${badges ? `<div class="meta-row">${badges}</div>` : ""}
           <div class="meta-row">
             <span class="meta-label">Send:</span>
-            <span class="meta-value">${item.date_send ? `<span class="schedule-badge">${formatDate(item.date_send)}</span>` : "ASAP"}</span>
+            <span class="meta-value">${item.date_send ? `<span class="schedule-badge">${escapeHtml(formatDate(item.date_send))}</span>` : "ASAP"}</span>
           </div>
           ${item.fontInfo?.label ? `<div class="meta-row"><span class="meta-label">Font:</span><span class="meta-value">${escapeHtml(item.fontInfo.label || item.fontInfo.name || "")}</span></div>` : ""}
           ${item.denomination || item.gift_card ? `<div class="meta-row"><span class="meta-label">Gift:</span><span class="meta-value">${escapeHtml(item.gift_card?.name || item.denomination?.name || "Gift Card")} (${formatPrice(item.denomination?.price)})</span></div>` : ""}
@@ -277,8 +267,8 @@ function renderBasketItem(item: BasketItem): HTMLElement {
     </div>
     ${priceItems.length > 0 ? `<div class="order-price-breakdown">${priceItems.join("")}</div>` : ""}
     <div class="order-card-footer">
-      <button class="btn-edit" data-id="${item.id}">Edit in App</button>
-      <button class="btn-remove" data-id="${item.id}">Remove</button>
+      <button class="btn-edit" data-id="${escapeHtml(item.id)}">Edit in App</button>
+      <button class="btn-remove" data-id="${escapeHtml(item.id)}">Remove</button>
     </div>
   `;
 
@@ -295,10 +285,11 @@ function renderBasketItem(item: BasketItem): HTMLElement {
     removeBtn.textContent = "Removing...";
     removeBtn.disabled = true;
     try {
-      await app.callServerTool({
+      const result = await app.callServerTool({
         name: "basket_remove_item",
         arguments: { basketId: item.id },
       });
+      if (result.isError) throw new Error(result.content?.find(c => c.type === "text")?.text || "Removal failed");
       el.remove();
       // Refresh data
       loadBasket();
@@ -336,6 +327,9 @@ function renderBasket(data: { items: BasketItem[]; checkout?: CheckoutData; coun
 
   const items = data.items || [];
   const count = data.count ?? items.length;
+  // Grouped/truncated responses do not expose every recipient being sent.
+  sendBtn.disabled = count !== items.length || items.some(item => Number(item.children_total || 0) > 0);
+  sendBtn.title = sendBtn.disabled ? "Review all basket recipients in your Handwrytten account before sending." : "";
 
   if (items.length === 0) {
     emptyStateEl.classList.remove("hidden");
@@ -414,10 +408,11 @@ clearBtn.addEventListener("click", async () => {
   clearBtn.textContent = "CLEARING...";
   clearBtn.disabled = true;
   try {
-    await app.callServerTool({
+    const result = await app.callServerTool({
       name: "basket_clear_all",
       arguments: {},
     });
+    if (result.isError) throw new Error(result.content?.find(c => c.type === "text")?.text || "Clear failed");
     loadBasket();
   } catch (e) {
     console.error("Clear failed:", e);
@@ -460,8 +455,10 @@ sendBtn.addEventListener("click", async () => {
     await loadBasket();
   } catch (e) {
     console.error("Send failed:", e);
-    sendBtn.textContent = "SEND FAILED — RETRY";
-    sendBtn.disabled = false;
+    sendBtn.textContent = "CHECK ORDER HISTORY";
+    sendBtn.disabled = true;
+    loadingEl.textContent = "Submission could not be confirmed. Check order history and refresh the basket before another attempt.";
+    loadingEl.classList.remove("hidden");
   }
 });
 

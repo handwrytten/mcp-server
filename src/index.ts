@@ -44,8 +44,10 @@ import { setupAuthRoutes, extractBearerToken, extractApiKey, type OAuthConfig } 
 const SERVER_NAME = "handwrytten";
 const SERVER_VERSION = "1.4.0";
 const MCP_INSTRUCTIONS =
-  "Handwrytten MCP server — send real handwritten notes at scale using robots with real pens. " +
-  "Use list_cards and list_fonts first to discover available options, then send_order to mail a note.";
+  "Browse Handwrytten cards, preview handwriting, manage saved addresses and prepare physical card orders. " +
+  "Use returned card, font and address IDs; ask for missing choices. Browsing and previews do not authorize ordering. " +
+  "Sending requires explicit confirmation of the affected orders and payment. Test submissions require a verified test-mode account. " +
+  "Report tool errors and empty results accurately; do not claim a preview rendered or an order was sent when the tool failed.";
 
 // ---------------------------------------------------------------------------
 // Helper: create a McpServer with tools registered for a given client

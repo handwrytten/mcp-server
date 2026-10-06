@@ -6,7 +6,7 @@ export default defineConfig({
   dts: true,
   clean: false,
   sourcemap: true,
-  target: "node18",
+  target: "node20",
   noExternal: [],
   external: ["express"],
   banner: {

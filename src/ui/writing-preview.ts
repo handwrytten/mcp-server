@@ -76,15 +76,16 @@ function renderPreview(dataUri: string | null, data: WritingData): void {
   if (dataUri) {
     previewEl.innerHTML = `<img src="${dataUri}" alt="Writing Preview" style="width:100%; display:block; border-radius:4px;" />`;
   } else if (data.renderError) {
-    previewEl.innerHTML = `<div class="loading">Error: ${data.renderError}</div>`;
+    previewEl.textContent = `Error: ${data.renderError}`;
   } else {
     previewEl.innerHTML = `<div class="loading">No preview available</div>`;
   }
 }
 
-// Initial tool result from Preview-Writing
+// Initial tool result from preview_writing
 app.ontoolresult = async (result) => {
   try {
+    if (result.isError) throw new Error(result.content?.find(c => c.type === "text")?.text || "Preview failed");
     const textContent = result.content?.find((c: any) => c.type === "text");
     const rawText = textContent && "text" in textContent ? textContent.text : null;
     const data: WritingData = JSON.parse(extractJson(rawText || "{}"));
@@ -95,7 +96,7 @@ app.ontoolresult = async (result) => {
     }
     renderPreview(imageDataUri(result), data);
   } catch (e: any) {
-    previewEl.innerHTML = `<div class="loading">Error: ${e.message}</div>`;
+    previewEl.textContent = `Error: ${e.message}`;
   }
 };
 
@@ -108,7 +109,7 @@ fontSelect.addEventListener("change", async () => {
   try {
     previewEl.innerHTML = `<div class="loading">Rendering…</div>`;
     const result = await app.callServerTool({
-      name: "preview_writing",
+      name: "render_writing_preview",
       arguments: {
         fontId,
         ...(state.cardId ? { cardId: state.cardId } : {}),
@@ -117,6 +118,8 @@ fontSelect.addEventListener("change", async () => {
         inkColor: state.inkColor || "#0040ac",
       },
     });
+
+    if (result.isError) throw new Error(result.content?.find(c => c.type === "text")?.text || "Preview failed");
 
     const textContent = result.content?.find((c: any) => c.type === "text");
     const text = textContent && "text" in textContent ? textContent.text : "{}";
@@ -132,7 +135,7 @@ fontSelect.addEventListener("change", async () => {
 
     renderPreview(imageDataUri(result), data);
   } catch (e: any) {
-    previewEl.innerHTML = `<div class="loading">Error: ${e.message}</div>`;
+    previewEl.textContent = `Error: ${e.message}`;
   }
 });
 

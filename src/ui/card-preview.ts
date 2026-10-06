@@ -10,6 +10,7 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import lottie from "lottie-web/build/player/lottie_light";
 import writeMessageAnimationData from "./write-message-animation.json";
 import "./card-preview.css";
+import { escapeHtml, formatPrice } from "./formatting.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -196,11 +197,11 @@ function createCardElement(card: Card): HTMLElement {
   el.className = "card-item";
 
   // Header: name + price
-  const priceDisplay = card.discount_price || card.price;
+  const priceDisplay = formatPrice(card.discount_price ?? card.price);
   el.innerHTML = `
     <div class="card-header">
       <span class="card-name" title="${escapeHtml(card.name)}">${escapeHtml(card.name)}</span>
-      <span class="card-price">$${priceDisplay}</span>
+      <span class="card-price">${priceDisplay}</span>
     </div>
     <div class="scene-3d">
       <div class="postcard__side ${orientationClass} front">
@@ -221,7 +222,7 @@ function createCardElement(card: Card): HTMLElement {
         ${!isFlat ? `<li data-view="inside">Inside</li>` : ""}
         <li data-view="back">Back</li>
       </ul>
-      <button class="select-btn" data-card-id="${card.id}">Select</button>
+      <button class="select-btn" data-card-id="${escapeHtml(card.id)}">Select</button>
     </div>
   `;
 
@@ -368,12 +369,6 @@ function populateCategories(cats: Category[]) {
   });
 }
 
-function escapeHtml(str: string): string {
-  const div = document.createElement("div");
-  div.textContent = str;
-  return div.innerHTML;
-}
-
 // ---------------------------------------------------------------------------
 // Data fetching
 // ---------------------------------------------------------------------------
@@ -448,9 +443,15 @@ app.ontoolresult = (result: CallToolResult) => {
 
     const data = JSON.parse(text);
 
+    currentCategoryId = data.categoryId;
+    currentQuery = data.query;
+    currentPage = data.page ?? 1;
+
     if (data.categories) {
       populateCategories(data.categories);
     }
+    categorySelect.value = currentCategoryId == null ? "" : String(currentCategoryId);
+    searchInput.value = currentQuery || "";
 
     if (data.cards) {
       renderCards(data.cards);

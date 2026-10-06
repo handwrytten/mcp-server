@@ -556,7 +556,7 @@ The basket workflow lets you build up multiple orders, review them, and submit t
 
 **Typical workflow**:
 1. `basket_add_order` → add orders (one per recipient)
-2. `basket_list` or `View-Basket` app → review
+2. `basket_list` or `view_basket` app → review
 3. `basket_send` → submit all orders for fulfillment
 
 #### `basket_add_order`
@@ -658,7 +658,7 @@ No parameters.
 
 These tools open rich interactive UIs inside the conversation. They are read-only and do not modify data (except for action buttons within the UI).
 
-### Preview-Cards (Browse Cards)
+### preview_cards (Browse Cards)
 
 Opens an interactive 3D card browser. Browse card templates with flip animation showing front, inside, and back views. Click "Select" to choose a card.
 
@@ -667,7 +667,7 @@ Opens an interactive 3D card browser. Browse card templates with flip animation 
 | `categoryId` | number | No | Filter by category ID |
 | `query` | string | No | Search card names |
 
-### Preview-Writing (Preview Writing)
+### preview_writing (Preview Writing)
 
 Renders a live preview of how a handwritten message will look on a card. Supports interactively changing fonts.
 
@@ -679,7 +679,7 @@ Renders a live preview of how a handwritten message will look on a card. Support
 | `wishes` | string | No | Closing text |
 | `inkColor` | string | No | Ink color hex (e.g. `"#0040ac"`) |
 
-### View-Basket (View Basket)
+### view_basket (View Basket)
 
 Opens a visual summary of the current basket. Shows each order with card preview, addresses, message, pricing breakdown, and checkout totals. Supports removing items and clearing the basket from within the UI.
 
@@ -733,7 +733,7 @@ User: "Add thank-you cards for these 3 clients but don't send yet, let me review
 1. `list_cards` → choose a card
 2. `list_fonts` → choose a font
 3. `basket_add_order` for each client
-4. `View-Basket` → user reviews the visual summary
+4. `view_basket` → user reviews the visual summary
 5. User confirms → `basket_send`
 
 ### Schedule a card for a future date
@@ -808,7 +808,7 @@ User: "Send a thank-you card with a $25 Amazon gift card"
 1. Calls `list_cards` and `list_fonts` — user selects options
 2. Calls `add_recipient` three times for Alice, Bob, Carol
 3. Calls `basket_add_order` with all three recipient IDs
-4. Calls `View-Basket` — shows interactive basket summary with card previews, addresses, and pricing
+4. Calls `view_basket` — shows interactive basket summary with card previews, addresses, and pricing
 5. User reviews and confirms
 6. Calls `basket_send`
 

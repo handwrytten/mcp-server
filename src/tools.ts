@@ -35,7 +35,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "get_user",
-    "[READ-ONLY] Get the authenticated user's Handwrytten profile. Returns normalized id, firstName, lastName, email and credits, plus additional fields under raw; credential fields are removed.",
+    "Get the authenticated user's Handwrytten profile. Returns normalized id, firstName, lastName, email and credits, plus additional fields under raw; credential fields are removed.",
     {},
     { title: "Get User Profile", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     async () => {
@@ -50,7 +50,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "list_signatures",
-    "[READ-ONLY] List the user's saved handwriting signature images. Returns array of {id, preview, raw}. Use the id as signatureId when placing orders via send_order or basket_add_order.",
+    "List the user's saved handwriting signature images. Returns array of {id, preview, raw}. Use the id as signatureId when placing orders via send_order or basket_add_order.",
     {},
     { title: "List Signatures", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     async () => {
@@ -69,7 +69,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "list_cards",
-    "[READ-ONLY] Browse available card/stationery templates. Returns paginated array of {id, title, imageUrl, category, categoryId, orientation}. " +
+    "Browse available card/stationery templates. Returns paginated array of {id, title, imageUrl, category, categoryId, orientation}. " +
       "Use categoryId=27 for 'My Custom Cards'. Call list_card_categories first to discover all category IDs. " +
       "Default: 20 per page, max 50.",
     {
@@ -87,11 +87,11 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
           "Filter by category name (case-insensitive partial match, e.g. 'thank you', 'birthday', 'custom')"
         ),
       page: z
-        .number()
+        .number().int().positive()
         .optional()
         .describe("Page number (default: 1)"),
       perPage: z
-        .number()
+        .number().int().min(1).max(50)
         .optional()
         .describe("Results per page (default: 20, max: 50)"),
       query: z
@@ -117,20 +117,24 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
         // Resolve category name to ID if provided
         let filterCatId = categoryId;
-        if (!filterCatId && category) {
+        let matchingCategoryIds: string[] | undefined;
+        if (filterCatId == null && category) {
           const lower = category.toLowerCase();
-          const match = catList.find(
+          const matches = catList.filter(
             (c: any) => c.name && c.name.toLowerCase().includes(lower)
           );
-          if (match) filterCatId = match.id;
+          matchingCategoryIds = matches.map((c: any) => String(c.id));
         }
 
         // Filter
         let filtered = allCards;
         if (filterCatId != null) {
           filtered = filtered.filter(
-            (c) => (c.raw as any).category_id === filterCatId
+            (c) => String((c.raw as any).category_id) === String(filterCatId)
           );
+        }
+        if (matchingCategoryIds) {
+          filtered = filtered.filter(c => matchingCategoryIds.includes(String(c.raw.category_id)));
         }
         if (query) {
           const q = query.toLowerCase();
@@ -173,7 +177,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "get_card",
-    "[READ-ONLY] Get full details of a specific card template. Returns id, title, imageUrl, cover and raw; dimensions, pricing and detailed images are inside raw.",
+    "Get full details of a specific card template. Returns id, title, imageUrl, cover and raw; dimensions, pricing and detailed images are inside raw.",
     { cardId: z.string().describe("Card template ID (numeric string, from list_cards results)") },
     { title: "Get Card Details", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     async ({ cardId }) => {
@@ -188,7 +192,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "list_card_categories",
-    "[READ-ONLY] List all card categories (e.g. 'Thank You', 'Birthday', 'Holiday', 'My Custom Cards'). Returns array of {id, name, slug}. Pass the returned id as categoryId to list_cards to filter.",
+    "List all card categories (e.g. 'Thank You', 'Birthday', 'Holiday', 'My Custom Cards'). Returns array of {id, name, slug}. Pass the returned id as categoryId to list_cards to filter.",
     {},
     { title: "List Card Categories", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     async () => {
@@ -212,7 +216,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "list_fonts",
-    "[READ-ONLY] List available handwriting font styles for the message body of orders. Returns array of {id, name, label, previewUrl}. Pass the id or label as the 'font' parameter to send_order or basket_add_order. These are robot-handwritten fonts, not printed fonts.",
+    "List available handwriting font styles for the message body of orders. Returns array of {id, name, label, previewUrl}. Pass the id or label as the 'font' parameter to send_order or basket_add_order. These are robot-handwritten fonts, not printed fonts.",
     {},
     { title: "List Handwriting Fonts", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     async () => {
@@ -227,7 +231,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "list_customizer_fonts",
-    "[READ-ONLY] List printed/typeset fonts for custom card text zones (header, footer, main, back). Returns array of {id, name, label}. These are DIFFERENT from handwriting fonts — use these only with create_custom_card zone parameters (headerFontId, mainFontId, footerFontId, backFontId).",
+    "List printed/typeset fonts for custom card text zones (header, footer, main, back). Returns array of {id, name, label}. These are DIFFERENT from handwriting fonts — use these only with create_custom_card zone parameters (headerFontId, mainFontId, footerFontId, backFontId).",
     {},
     { title: "List Custom Card Fonts", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     async () => {
@@ -246,7 +250,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "list_gift_cards",
-    "[READ-ONLY] List available physical gift card products and their price denominations. Returns array of {id, title, denominations: [{id, nominal, price}], raw}. Pass a denomination id as denominationId to send_order or basket_add_order to include a gift card in the envelope.",
+    "List available physical gift card products and their price denominations. Returns array of {id, title, denominations: [{id, nominal, price}], raw}. Pass a denomination id as denominationId to send_order or basket_add_order to include a gift card in the envelope.",
     {},
     { title: "List Gift Cards", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     async () => {
@@ -265,7 +269,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "list_inserts",
-    "[READ-ONLY] List available card inserts (business cards, flyers, brochures) that can be physically included in the envelope with a card. Returns array of {id, title, imageUrl, raw}. Pass the id as insertId to send_order or basket_add_order.",
+    "List available card inserts (business cards, flyers, brochures) that can be physically included in the envelope with a card. Returns array of {id, title, imageUrl, raw}. Pass the id as insertId to send_order or basket_add_order.",
     {
       includeHistorical: z
         .boolean()
@@ -289,7 +293,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "list_qr_codes",
-    "[READ-ONLY] List QR codes created on this account. Returns array of {id, title, url, raw}; scan information, when available, is under raw. QR codes can be placed on custom cards via create_custom_card.",
+    "List QR codes created on this account. Returns array of {id, title, url, raw}; scan information, when available, is under raw. QR codes can be placed on custom cards via create_custom_card.",
     {},
     { title: "List QR Codes", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     async () => {
@@ -304,7 +308,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "create_qr_code",
-    "[CREATES DATA] Create a new QR code for use on custom cards. Returns the created QR code with its id. Use the id with create_custom_card's qrCodeId parameter.",
+    "Create a new QR code for use on custom cards. Returns the created QR code with its id. Use the id with create_custom_card's qrCodeId parameter.",
     {
       name: z.string().describe("Display name for the QR code (for your reference only, not printed)"),
       url: z.string().describe("The URL users will be directed to when they scan the QR code"),
@@ -324,7 +328,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "delete_qr_code",
-    "[DESTRUCTIVE — permanently deletes QR code] Permanently delete a QR code. This cannot be undone. Any custom cards using this QR code will no longer display it.",
+    "Permanently delete a QR code. This cannot be undone. Any custom cards using this QR code will no longer display it.",
     { qrCodeId: z.number().describe("ID of the QR code to delete") },
     { title: "Delete QR Code", destructiveHint: true, readOnlyHint: false, openWorldHint: true },
     async ({ qrCodeId }) => {
@@ -339,7 +343,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "list_qr_code_frames",
-    "[READ-ONLY] List decorative border frames available for QR codes on custom cards. Returns backend frame records. Pass the returned id as qrCodeFrameId to create_custom_card.",
+    "List decorative border frames available for QR codes on custom cards. Returns backend frame records. Pass the returned id as qrCodeFrameId to create_custom_card.",
     {},
     { title: "List QR Code Frames", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     async () => {
@@ -358,7 +362,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "list_recipients",
-    "[READ-ONLY] List saved recipient (TO) addresses from the address book. Returns array of {id, firstName, lastName, street1, city, state, zip, company, raw}; optional birthday and anniversary fields are under raw. Pass the id as 'recipient' to send_order or in the addressIds array to basket_add_order.",
+    "List saved recipient (TO) addresses from the address book. Returns array of {id, firstName, lastName, street1, city, state, zip, company, raw}; optional birthday and anniversary fields are under raw. Pass the id as 'recipient' to send_order or in the addressIds array to basket_add_order.",
     {},
     { title: "List Recipients", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     async () => {
@@ -373,7 +377,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "add_recipient",
-    "[CREATES DATA] Save a new recipient (TO) address to the address book. Returns {addressId}. You must save an address first before you can send a card to it — use the returned addressId as 'recipient' in send_order or in addressIds for basket_add_order.",
+    "Save a new recipient (TO) address to the address book. Returns {addressId}. You must save an address first before you can send a card to it — use the returned addressId as 'recipient' in send_order or in addressIds for basket_add_order.",
     {
       firstName: z.string().describe("First name"),
       lastName: z.string().describe("Last name"),
@@ -400,7 +404,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "update_recipient",
-    "[MODIFIES DATA] Update an existing saved recipient address. Only pass the fields you want to change — omitted fields remain unchanged. Returns {addressId}.",
+    "Update an existing saved recipient address. Only pass the fields you want to change — omitted fields remain unchanged. Returns {addressId}.",
     {
       addressId: z.number().describe("ID of the address to update"),
       firstName: z.string().optional().describe("First name"),
@@ -428,7 +432,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "delete_recipient",
-    "[DESTRUCTIVE — deletes address data] Permanently delete one or more recipient addresses from the address book. Provide either a single addressId OR an array of addressIds, not both. This cannot be undone.",
+    "Permanently delete one or more recipient addresses from the address book. Provide either a single addressId OR an array of addressIds, not both. This cannot be undone.",
     {
       addressId: z.number().optional().describe("Single address ID to delete"),
       addressIds: z
@@ -449,7 +453,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "list_senders",
-    "[READ-ONLY] List saved sender (FROM / return) addresses from the address book. Returns array of {id, firstName, lastName, street1, city, state, zip, company, raw}; default-address metadata is under raw. Pass the id as 'sender' to send_order or as returnAddressId to basket_add_order.",
+    "List saved sender (FROM / return) addresses from the address book. Returns array of {id, firstName, lastName, street1, city, state, zip, company, raw}; default-address metadata is under raw. Pass the id as 'sender' to send_order or as returnAddressId to basket_add_order.",
     {},
     { title: "List Sender Addresses", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     async () => {
@@ -464,7 +468,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "add_sender",
-    "[CREATES DATA] Save a new sender (FROM / return) address to the address book. Returns {addressId}. Use the returned addressId as 'sender' in send_order or as returnAddressId in basket_add_order.",
+    "Save a new sender (FROM / return) address to the address book. Returns {addressId}. Use the returned addressId as 'sender' in send_order or as returnAddressId in basket_add_order.",
     {
       firstName: z.string().describe("First name"),
       lastName: z.string().describe("Last name"),
@@ -490,7 +494,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "delete_sender",
-    "[DESTRUCTIVE — deletes address data] Permanently delete one or more sender (return) addresses. Provide either a single addressId OR an array of addressIds, not both. This cannot be undone.",
+    "Permanently delete one or more sender (return) addresses. Provide either a single addressId OR an array of addressIds, not both. This cannot be undone.",
     {
       addressId: z.number().optional().describe("Single address ID to delete"),
       addressIds: z
@@ -511,7 +515,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "list_countries",
-    "[READ-ONLY] List all countries Handwrytten can mail to. Returns array of {id, code, name}. Use the numeric id, converted to a string, as countryId when adding addresses.",
+    "List all countries Handwrytten can mail to. Returns array of {id, code, name}. Use the numeric id, converted to a string, as countryId when adding addresses.",
     {},
     { title: "List Countries", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     async () => {
@@ -526,7 +530,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "list_states",
-    "[READ-ONLY] List states/provinces for a given country. Returns array of {code, name, raw}. Use the code as the 'state' parameter when adding addresses.",
+    "List states/provinces for a given country. Returns array of {code, name, raw}. Use the code as the 'state' parameter when adding addresses.",
     {
       countryCode: z
         .string()
@@ -550,7 +554,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "send_order",
-    "[SENDS REAL MAIL — charges the user's account and mails a physical card] Always confirm card, message, recipient, and sender details with the user before calling. " +
+    "Always confirm card, message, recipient, and sender details with the user before calling. " +
       "Send a real handwritten note via Handwrytten. Requires an empty basket and confirmSend=true. Refuses to submit when pre-existing basket items exist. This tool places " +
       "an order that results in a physical card being written by a robot with a real pen " +
       "and mailed to the recipient. Use list_cards and list_fonts first to get valid IDs. " +
@@ -606,7 +610,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "get_order",
-    "[READ-ONLY] Get full details of a specific order including status, tracking info, card details, message, addresses, and pricing. Returns normalized id, status, message, cardId, fontId, createdAt, trackingNumber and raw. Additional addresses, pricing and backend fields are under raw.",
+    "Get full details of a specific order including status, tracking info, card details, message, addresses, and pricing. Returns normalized id, status, message, cardId, fontId, createdAt, trackingNumber and raw. Additional addresses, pricing and backend fields are under raw.",
     { orderId: z.string().describe("The order ID (numeric string, from send_order response or list_orders results)") },
     { title: "Get Order Details", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     async ({ orderId }) => {
@@ -621,10 +625,10 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "list_orders",
-    "[READ-ONLY] List past orders with pagination. Returns an array of normalized orders with id, status, message, cardId, fontId, createdAt, trackingNumber and raw; additional backend fields are under raw. Default: page 1.",
+    "List past orders with pagination. Returns an array of normalized orders with id, status, message, cardId, fontId, createdAt, trackingNumber and raw; additional backend fields are under raw. Default: page 1.",
     {
-      page: z.number().optional().describe("Page number, starting from 1 (default: 1)"),
-      perPage: z.number().optional().describe("Number of orders per page (default: 20)"),
+      page: z.number().int().positive().optional().describe("Page number, starting from 1 (default: 1)"),
+      perPage: z.number().int().min(1).max(50).optional().describe("Number of orders per page (default: 20)"),
     },
     { title: "List Orders", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     async (params) => {
@@ -639,9 +643,9 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "list_past_baskets",
-    "[READ-ONLY] List previously submitted order baskets (groups of orders placed together). Returns an array of backend basket records; available fields depend on the backend response.",
+    "List previously submitted order baskets (groups of orders placed together). Returns an array of backend basket records; available fields depend on the backend response.",
     {
-      page: z.number().optional().describe("Page number"),
+      page: z.number().int().positive().optional().describe("Page number"),
     },
     { title: "List Past Baskets", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     async (params) => {
@@ -660,7 +664,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "basket_add_order",
-    "[CREATES DATA] Add an order to the basket (multi-step workflow). Use send_order instead for single-step sends. " +
+    "Prepare unsent card orders in the account basket when the user wants to review or save them before checkout. Does not charge or mail cards. " +
       "Recipients and senders must be saved address IDs (use add_recipient / add_sender first).",
     {
       cardId: z.string().describe("Card template ID string (from list_cards). e.g. '1234'."),
@@ -668,7 +672,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
       message: z.string().optional().describe("The handwritten message body."),
       wishes: z.string().optional().describe("Closing text below the message (e.g. 'Best,\\nThe Team')."),
       addressIds: z
-        .array(z.number())
+        .array(z.number().int().positive()).min(1)
         .describe("Array of saved recipient address IDs (from add_recipient or list_recipients). One order is created per address."),
       returnAddressId: z.number().optional().describe("Saved sender (return) address ID (from add_sender or list_senders). If omitted, uses account default."),
       denominationId: z.number().optional().describe("Gift card denomination ID (from list_gift_cards → denominations)."),
@@ -690,7 +694,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "basket_send",
-    "[SENDS REAL MAIL — charges the user's account and mails ALL orders in the basket] Requires confirmSend=true after the user reviews and confirms ALL basket items and payment. Submits every order in the basket for physical fulfillment. Cards will be handwritten and mailed. This charges the user's payment method. Returns the backend submission response.",
+    "Requires confirmSend=true after the user reviews and confirms ALL basket items and payment. Submits every order in the basket for physical fulfillment. Cards will be handwritten and mailed. This charges the user's payment method. Returns the backend submission response.",
     {
       confirmSend: z.boolean().describe("Set true only after the user explicitly confirms submission and payment for ALL affected basket items."),
       couponCode: z.string().optional().describe("Coupon/promo code to apply for a discount (validated server-side)."),
@@ -709,7 +713,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "basket_list",
-    "[READ-ONLY] List all orders currently in the basket (not yet submitted). Returns the backend basket response containing items and available pricing metadata. Use View-Basket app tool for a richer visual display.",
+    "Retrieve unsent basket orders and available pricing metadata as data when reviewing the current basket. Does not submit or modify orders. For the interactive basket interface, use view_basket.",
     {},
     { title: "List Basket Items", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     async () => {
@@ -724,7 +728,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "basket_count",
-    "[READ-ONLY] Get the count of orders currently in the basket. Returns {count: number}. Quick check without fetching full item details.",
+    "Get the count of orders currently in the basket. Returns {count: number}. Quick check without fetching full item details.",
     {},
     { title: "Get Basket Count", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     async () => {
@@ -739,7 +743,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "basket_remove",
-    "[DESTRUCTIVE — removes order from basket] Remove a single order from the basket. The order is discarded and not recoverable. Confirm with the user before calling.",
+    "Remove a single order from the basket. The order is discarded and not recoverable. Confirm with the user before calling.",
     { basketId: z.number().describe("Basket item ID to remove (from basket_list results)") },
     { title: "Remove from Basket", destructiveHint: true, readOnlyHint: false, openWorldHint: false },
     async ({ basketId }) => {
@@ -754,7 +758,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "basket_clear",
-    "[DESTRUCTIVE — removes ALL orders from basket] Permanently removes every order from the basket. None of the orders will be sent. Always confirm with the user before calling — this cannot be undone.",
+    "Permanently removes every order from the basket. None of the orders will be sent. Always confirm with the user before calling — this cannot be undone.",
     {},
     { title: "Clear Basket", destructiveHint: true, readOnlyHint: false, openWorldHint: false },
     async () => {
@@ -773,7 +777,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "list_custom_card_dimensions",
-    "[READ-ONLY] List available card sizes/formats for custom card designs. Returns array of {id, format, orientation, openWidth, openHeight, name, raw}. Pass the id as dimensionId to create_custom_card.",
+    "List available card sizes/formats for custom card designs. Returns array of {id, format, orientation, openWidth, openHeight, name, raw}. Pass the id as dimensionId to create_custom_card.",
     {
       format: z
         .string()
@@ -797,7 +801,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "upload_custom_image",
-    "[CREATES DATA] Upload an image from a URL for use in custom card designs. The image is downloaded and stored by Handwrytten. Returns {id, imageUrl, imageType, raw}; dimensions, when available, are under raw. Use imageType='cover' for full-bleed card faces, imageType='logo' for logos on the writing side. Pass the returned id to create_custom_card (as coverId, headerLogoId, mainLogoId, footerLogoId, or backLogoId).",
+    "Upload an image from a URL for use in custom card designs. The image is downloaded and stored by Handwrytten. Returns {id, imageUrl, imageType, raw}; dimensions, when available, are under raw. Use imageType='cover' for full-bleed card faces, imageType='logo' for logos on the writing side. Pass the returned id to create_custom_card (as coverId, headerLogoId, mainLogoId, footerLogoId, or backLogoId).",
     {
       url: z.string().describe("Publicly accessible URL of the image (JPEG/PNG/GIF)"),
       imageType: z
@@ -817,7 +821,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "check_custom_image",
-    "[READ-ONLY] Validate that an uploaded image meets print quality requirements (DPI, dimensions) for a specific card size. Returns the backend validation response; inspect its status, warnings and errors. Call this after upload_custom_image to verify before using in a design.",
+    "Validate that an uploaded image meets print quality requirements (DPI, dimensions) for a specific card size. Returns the backend validation response; inspect its status, warnings and errors. Call this after upload_custom_image to verify before using in a design.",
     {
       imageId: z.number().describe("Image ID to check"),
       cardId: z.number().optional().describe("Optional card ID for dimension-specific checks"),
@@ -835,7 +839,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "list_custom_images",
-    "[READ-ONLY] List all images previously uploaded to this account for custom card designs. Returns array of {id, imageUrl, imageType, raw}. Filter by type: 'cover' (full-bleed faces) or 'logo' (writing-side logos).",
+    "List all images previously uploaded to this account for custom card designs. Returns array of {id, imageUrl, imageType, raw}. Filter by type: 'cover' (full-bleed faces) or 'logo' (writing-side logos).",
     {
       imageType: z
         .enum(["cover", "logo"])
@@ -855,7 +859,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "delete_custom_image",
-    "[DESTRUCTIVE — permanently deletes uploaded image] Permanently delete an uploaded custom image. Any custom card designs still referencing this image may display incorrectly. This cannot be undone.",
+    "Permanently delete an uploaded custom image. Any custom card designs still referencing this image may display incorrectly. This cannot be undone.",
     { imageId: z.number().describe("Image ID to delete") },
     { title: "Delete Custom Image", destructiveHint: true, readOnlyHint: false, openWorldHint: false },
     async ({ imageId }) => {
@@ -870,7 +874,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "create_custom_card",
-    "[CREATES DATA] Create a custom card design from uploaded images and text zones.\n\n" +
+    "Create a custom card design from uploaded images and text zones.\n\n" +
       "IMPORTANT — Each writing-side zone (header/main/footer) and the back side has a 'type' field:\n" +
       "  type='logo' → displays a logo image (must also provide the matching logoId + sizePercent)\n" +
       "  type='text' → displays printed text (provide text + fontId)\n" +
@@ -976,7 +980,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "get_custom_card",
-    "[READ-ONLY] Get full details of a custom card design including dimensions, cover images, text zones, logos, and QR code placement. Returns all configuration needed to understand or duplicate the design.",
+    "Get full details of a custom card design including dimensions, cover images, text zones, logos, and QR code placement. Returns all configuration needed to understand or duplicate the design.",
     { cardId: z.number().describe("Custom card ID") },
     { title: "Get Custom Card Details", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     async ({ cardId }) => {
@@ -991,7 +995,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   registerAuthenticatedTool(server,
     "delete_custom_card",
-    "[DESTRUCTIVE — permanently deletes custom card design] Permanently delete a custom card design. Orders already placed with this card are unaffected, but new orders cannot use it. This cannot be undone.",
+    "Permanently delete a custom card design. Orders already placed with this card are unaffected, but new orders cannot use it. This cannot be undone.",
     { cardId: z.number().describe("Custom card ID to delete") },
     { title: "Delete Custom Card", destructiveHint: true, readOnlyHint: false, openWorldHint: false },
     async ({ cardId }) => {
@@ -1010,7 +1014,7 @@ export function registerTools(server: McpServer, client: Handwrytten, oauthServe
 
   // registerAuthenticatedTool(server,
   //   "calculate_targets",
-  //   "[READ-ONLY] Estimate the number of prospecting targets (businesses/residents) in a geographic area. Returns target counts by category and estimated mailing costs. Use this to preview before creating a prospecting campaign.",
+  //   "Estimate the number of prospecting targets (businesses/residents) in a geographic area. Returns target counts by category and estimated mailing costs. Use this to preview before creating a prospecting campaign.",
   //   {
   //     zipCode: z.string().describe("Center ZIP code for the search area (US only, e.g. '90210')"),
   //     radiusMiles: z

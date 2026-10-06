@@ -488,7 +488,7 @@
         "destructive_justification": "Removes a saved design used for future orders."
       }
     },
-    "Preview-Cards": {
+    "preview_cards": {
       "annotations": {
         "readOnlyHint": true,
         "openWorldHint": false,
@@ -524,7 +524,7 @@
         "destructive_justification": "Does not delete, overwrite or submit orders for fulfillment."
       }
     },
-    "Preview-Writing": {
+    "preview_writing": {
       "annotations": {
         "readOnlyHint": true,
         "openWorldHint": false,
@@ -536,7 +536,7 @@
         "destructive_justification": "Does not delete, overwrite or submit orders for fulfillment."
       }
     },
-    "preview_writing": {
+    "render_writing_preview": {
       "annotations": {
         "readOnlyHint": true,
         "openWorldHint": false,
@@ -548,7 +548,7 @@
         "destructive_justification": "Does not delete, overwrite or submit orders for fulfillment."
       }
     },
-    "View-Basket": {
+    "view_basket": {
       "annotations": {
         "readOnlyHint": true,
         "openWorldHint": false,
@@ -600,39 +600,39 @@
   "test_cases": [
     {
       "description": "Browse stationery and preview writing on the selected card.",
-      "user_prompt": "Find thank-you cards and show how \u2018Thank you for your business!\u2019 looks on the card I select. Do not order anything.",
+      "user_prompt": "Find thank-you cards. Use the first returned card and first available handwriting font to preview 'Thank you for your business!'. Do not order anything.",
       "file_attachment_urls": null,
-      "tools_triggered": "list_cards, list_fonts, Preview-Writing",
-      "expected_output": "Returns matching cards and renders the message using the selected card ID and font; no order is placed.",
+      "tools_triggered": "list_cards, list_fonts, preview_writing",
+      "expected_output": "Returns matching cards, lists fonts, and calls preview_writing with the first returned card ID and font ID. Displays the message image with those dimensions and font. No account writes or sends occur. The reviewer account must have at least one matching card and a working font asset.",
       "expected_output_url": null
     },
     {
-      "description": "Save and retrieve a synthetic reviewer recipient.",
-      "user_prompt": "Save Jane Example at 123 Example Street, Phoenix, AZ 85001 as a test recipient, then show my saved recipients. Do not send mail.",
+      "description": "Save and retrieve a synthetic reviewer recipient using a validated, operator-controlled address. Requires exactly one saved sender named Reviewer Sender.",
+      "user_prompt": "Find my saved sender named Reviewer Sender. Save a recipient named Jane Example using that sender's postal address, then show my saved recipients. Do not send mail.",
       "file_attachment_urls": null,
-      "tools_triggered": "add_recipient, list_recipients",
-      "expected_output": "Creates the synthetic recipient in the reviewer account and returns its saved address ID; does not submit an order.",
+      "tools_triggered": "list_senders, add_recipient, list_recipients",
+      "expected_output": "Reads the Reviewer Sender address, saves Jane Example at that same validated postal address and returns a positive saved address ID. The recipient list contains that ID and name. Does not submit an order. If the fixture is missing or ambiguous, asks for clarification rather than inventing an address; fix the fixture before recording a passing run.",
       "expected_output_url": null
     },
     {
       "description": "Prepare an unsent basket with reviewer fixtures.",
-      "user_prompt": "Using the card, font, recipient and sender IDs from my reviewer fixtures, add \u2018Thank you!\u2019 to my basket and show me the basket. Do not submit it.",
+      "user_prompt": "Find my saved recipient Jane Example and saved sender Reviewer Sender. Use the first available card and handwriting font to add 'Thank you!' to my basket for that recipient and sender, then show the basket. Do not submit it.",
       "file_attachment_urls": null,
-      "tools_triggered": "basket_add_order, View-Basket",
+      "tools_triggered": "list_recipients, list_senders, list_cards, list_fonts, basket_add_order, view_basket",
       "expected_output": "Adds an unsent basket item and displays the chosen card, message, saved addresses and basket summary without charging or sending mail.",
       "expected_output_url": null
     },
     {
-      "description": "Validate a dedicated reviewer basket in test mode.",
+      "description": "Validate a dedicated reviewer basket in test mode. Run after the draft case with exactly one unsent synthetic order and a backend test-mode account.",
       "user_prompt": "Using the dedicated Handwrytten test-mode reviewer account, review all basket items and submit them in test mode. I confirm this test submission of the entire basket.",
       "file_attachment_urls": null,
-      "tools_triggered": "View-Basket, basket_send",
-      "expected_output": "Call View-Basket to review all items, then call basket_send with confirmSend=true and testMode=true. Refuse if the connected account is not in test mode. Report the backend result without claiming physical fulfillment.",
+      "tools_triggered": "view_basket, basket_send",
+      "expected_output": "Call view_basket to review all items, then call basket_send with confirmSend=true and testMode=true. Refuse if the connected account is not in test mode. Report the backend result without claiming physical fulfillment.",
       "expected_output_url": null
     },
     {
       "description": "Review order history without changing it.",
-      "user_prompt": "Show my recent orders and the details of the order I select.",
+      "user_prompt": "Show my recent orders and fetch the details of the first returned order. Do not modify or resubmit anything.",
       "file_attachment_urls": null,
       "tools_triggered": "list_orders, get_order",
       "expected_output": "Returns order history and the selected order details from the reviewer account without modifying or resubmitting orders.",

@@ -43,7 +43,7 @@ test("tool annotations and preview CSP survive serialization, and backend 401 tr
     for (const testCase of submission.test_cases) {
       for (const name of testCase.tools_triggered.split(", ")) assert.ok(submission.tools[name], name);
     }
-    for (const name of ["Preview-Cards", "Preview-Writing", "View-Basket"]) {
+    for (const name of ["preview_cards", "preview_writing", "view_basket"]) {
       const tool = tools.find(tool => tool.name === name)!;
       assert.equal(tool.annotations?.readOnlyHint, true);
       const uri = (tool._meta?.ui as { resourceUri: string }).resourceUri;
@@ -62,7 +62,7 @@ test("tool annotations and preview CSP survive serialization, and backend 401 tr
     const result = await client.callTool({ name: "get_user", arguments: {} });
     assert.equal(result.isError, true);
     assert.ok(result._meta?.["mcp/www_authenticate"], JSON.stringify(result));
-    const previewResult = await client.callTool({ name: "Preview-Cards", arguments: {} });
+    const previewResult = await client.callTool({ name: "preview_cards", arguments: {} });
     assert.equal(previewResult.isError, true);
     assert.ok(previewResult._meta?.["mcp/www_authenticate"]);
   } finally {

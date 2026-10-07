@@ -102,6 +102,34 @@ test("without configured registration credentials, discovery omits registration 
   assert.equal(result.client_secret, undefined);
 });
 
+for (const routePrefix of [undefined, "/chatgpt"] as const) {
+  test(`${routePrefix || "root"} registration declares that its configured client secret does not expire`, async (t) => {
+    const app = express();
+    app.use(express.json());
+    setupAuthRoutes(app, {
+      mcpServerUrl: "https://mcp.handwrytten.com",
+      handwryttenApiUrl: "https://api.handwrytten.com",
+      routePrefix,
+      oauthClientId: "configured-client",
+      oauthClientSecret: "configured-secret",
+    });
+    const endpoint = await listen(app);
+    t.after(() => new Promise<void>((resolve, reject) => {
+      endpoint.server.close(error => error ? reject(error) : resolve());
+      endpoint.server.closeAllConnections();
+    }));
+    const response = await fetch(`${endpoint.url}${routePrefix || ""}/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ redirect_uris: ["https://callback.example/"] }),
+    });
+    assert.equal(response.status, 201);
+    const result = await response.json();
+    assert.equal(result.client_secret, "configured-secret");
+    assert.equal(result.client_secret_expires_at, 0);
+  });
+}
+
 test("authorization preserves client, callback, state, PKCE and resource on GET and POST", async () => {
   const params = new URLSearchParams({ client_id: "chatgpt", redirect_uri: "https://callback.example/", response_type: "code", scope: "read:profile", state: "test-state", code_challenge: "test-challenge", code_challenge_method: "S256", resource: "https://mcp.handwrytten.com/mcp" });
   for (const method of ["GET", "POST"]) {

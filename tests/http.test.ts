@@ -62,7 +62,7 @@ for (const fallback of [false, true]) {
         } finally {
           await client.close();
         }
-        const registration = await (await fetch(`${url}${prefix}/register`, { method: "POST" })).json();
+        const registration = await (await fetch(`${url}${prefix}/register?state=query-never-log`, { method: "POST" })).json();
         assert.equal(registration.client_id, id);
         assert.equal(registration.client_secret, `${id}-secret`);
         const response = await fetch(`${url}${prefix}/mcp`, {
@@ -86,5 +86,7 @@ for (const fallback of [false, true]) {
         await new Promise<void>(resolve => { child.once("exit", () => resolve()); child.kill(); });
       }
     }
+    assert.match(stderr, /MCP connection .*"route":"\/chatgpt\/register","status":201/);
+    assert.doesNotMatch(stderr, /query-never-log|claude-secret|chatgpt-secret|fake-private-key|caller-token|caller-key/);
   });
 }

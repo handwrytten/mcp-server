@@ -120,6 +120,26 @@ async function runHttp(): Promise<void> {
 
   const app = createMcpExpressApp({ host: "0.0.0.0" });
 
+  // Trace connection setup without logging query strings, headers, bodies,
+  // redirect URLs, client credentials, or authorization codes.
+  const connectionPaths = new Set(["", "/chatgpt"].flatMap(prefix => [
+    ...["mcp", "authorize", "token", "revoke", "register"].map(route => `${prefix}/${route}`),
+    `${prefix}/.well-known/oauth-protected-resource`,
+    `${prefix}/.well-known/oauth-authorization-server`,
+    `/.well-known/oauth-protected-resource${prefix}/mcp`,
+    `/.well-known/oauth-authorization-server${prefix}`,
+  ]));
+  app.use((req, res, next) => {
+    if (connectionPaths.has(req.path)) {
+      const started = Date.now();
+      const route = req.path;
+      res.on("finish", () => console.error("MCP connection", JSON.stringify({
+        method: req.method, route, status: res.statusCode, durationMs: Date.now() - started,
+      })));
+    }
+    next();
+  });
+
   // Public domain verification for the ChatGPT app submission.
   app.get("/.well-known/openai-apps-challenge", (_req: Request, res: Response) => {
     res.type("text/plain").send("iEJ5enJjvhO5Q2vLOjgY5BNuMHcEhtbuinVI3oCSEuU");

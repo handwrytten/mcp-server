@@ -224,6 +224,8 @@ export function setupAuthRoutes(app: Express, config: OAuthConfig, onTokenIssued
       res.status(201).json({
         client_id: config.oauthClientId,
         client_secret: config.oauthClientSecret,
+        // RFC 7591 requires an expiry when issuing a secret; zero means no expiry.
+        client_secret_expires_at: 0,
         client_name: req.body?.client_name || "MCP Client",
         redirect_uris: req.body?.redirect_uris || [],
         grant_types: ["authorization_code", "refresh_token"],

@@ -28,7 +28,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { createMcpExpressApp } from "@modelcontextprotocol/sdk/server/express.js";
-import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
+import { isInitializeRequest, isInitializedNotification } from "@modelcontextprotocol/sdk/types.js";
 import type { Handwrytten } from "handwrytten";
 import { createHandwryttenClient } from "./handwrytten-client.js";
 
@@ -181,9 +181,11 @@ async function runHttp(): Promise<void> {
     const apiKey = token ? null : extractApiKey(req.headers["x-api-key"], req.headers.authorization);
     const isInit = isInitializeRequest(req.body);
 
-    // Allow initialize through without auth (capability discovery).
-    // All other methods require a valid token or API key.
-    if (!token && !apiKey && !DEV_API_KEY && !isInit) {
+    // Complete both halves of the public handshake. Challenging the initialized
+    // notification aborts Client.connect() before protected discovery can start.
+    // Tool, resource and prompt requests still require credentials.
+    const isHandshake = isInit || isInitializedNotification(req.body);
+    if (!token && !apiKey && !DEV_API_KEY && !isHandshake) {
       const mcpServerUrl = oauthServerUrl;
       res
         .status(401)

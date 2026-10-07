@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createServer } from "node:net";
 import { test } from "node:test";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 
 async function freePort() {
   const socket = createServer();
@@ -51,6 +53,15 @@ for (const fallback of [false, true]) {
       const metadata = await (await fetch(`${url}/.well-known/oauth-authorization-server`)).json();
       assert.equal(metadata.registration_endpoint, `${url}/register`);
       for (const [prefix, id] of [["", "claude"], ["/chatgpt", "chatgpt"]]) {
+        // A new OAuth connection must complete the public handshake before
+        // protected discovery can challenge the client to authenticate.
+        const client = new Client({ name: "handshake-test", version: "1" });
+        try {
+          await client.connect(new StreamableHTTPClientTransport(new URL(`${url}${prefix}/mcp`)));
+          if (!fallback) await assert.rejects(client.listTools(), /401|Bearer token required/);
+        } finally {
+          await client.close();
+        }
         const registration = await (await fetch(`${url}${prefix}/register`, { method: "POST" })).json();
         assert.equal(registration.client_id, id);
         assert.equal(registration.client_secret, `${id}-secret`);

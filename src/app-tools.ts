@@ -19,7 +19,7 @@ import type {
 import { z } from "zod";
 import { Handwrytten } from "handwrytten";
 import { outputSchemaFor, withStructuredResult } from "./tool-results.js";
-import { previewMetadata, validateImageUrl } from "./preview-security.js";
+import { imageMimeType, previewMetadata, validateImageUrl } from "./preview-security.js";
 import { estimateBasket } from "./basket-safety.js";
 import { writingDimensions } from "./writing-dimensions.js";
 import crypto from "node:crypto";
@@ -57,6 +57,8 @@ const PREVIEW_COLORS = 32;
 function svgToPng(svg: string): Buffer {
   const rendered = new Resvg(svg, {
     fitTo: { mode: "width" as const, value: 800 },
+    // Opaque white like the card, so a downloaded PNG matches the panel.
+    background: "#ffffff",
   }).render();
   const { width, height, pixels } = rendered;
   // upng-js expects an ArrayBuffer of RGBA pixels; cnum > 0 quantizes.
@@ -118,7 +120,7 @@ export function registerAppTools(
 ): void {
   const err = (error: unknown) => toolError(error, oauthServerUrl);
   const { resourceMeta, legacyCsp } = previewMetadata(serverUrl);
-  const cardPreviewUri = "ui://handwrytten/card-preview.html";
+  const cardPreviewUri = "ui://handwrytten/card-preview-v2.html";
 
   // ═══════════════════════════════════════════════════════════════════════════
   // CARD PREVIEW APP
@@ -262,9 +264,9 @@ export function registerAppTools(
           };
         }
 
-        const contentType = (res.headers.get("content-type") || "").split(";")[0];
-        if (!["image/png", "image/jpeg", "image/gif", "image/webp"].includes(contentType)) throw new Error("Unsupported image type");
         const buffer = Buffer.from(await res.arrayBuffer());
+        const contentType = imageMimeType(buffer);
+        if (!contentType) throw new Error("Unsupported image type");
 
         return {
           content: [{
@@ -306,7 +308,7 @@ export function registerAppTools(
   // WRITING PREVIEW APP (server-rendered PNG displayed in MCP App iframe)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  const writingPreviewUri = "ui://handwrytten/writing-preview.html";
+  const writingPreviewUri = "ui://handwrytten/writing-preview-v3.html";
 
   registerAppTool(
     server,
@@ -575,7 +577,7 @@ export function registerAppTools(
   // BASKET SUMMARY APP
   // ═══════════════════════════════════════════════════════════════════════════
 
-  const basketSummaryUri = "ui://handwrytten/basket-summary.html";
+  const basketSummaryUri = "ui://handwrytten/basket-summary-v2.html";
 
   registerAppTool(
     server,

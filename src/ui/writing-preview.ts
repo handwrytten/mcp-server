@@ -28,6 +28,8 @@ let state: WritingData | null = null;
 
 const previewEl = document.getElementById("preview")!;
 const fontSelect = document.getElementById("font-select") as HTMLSelectElement;
+const downloadBtn = document.getElementById("download-btn") as HTMLButtonElement;
+let currentPng: string | null = null;
 
 // ---------------------------------------------------------------------------
 // MCP App
@@ -73,6 +75,8 @@ function imageDataUri(result: any): string | null {
 }
 
 function renderPreview(dataUri: string | null, data: WritingData): void {
+  currentPng = dataUri?.startsWith("data:image/png;base64,") ? dataUri.slice("data:image/png;base64,".length) : null;
+  downloadBtn.disabled = !currentPng;
   if (dataUri) {
     previewEl.innerHTML = `<img src="${dataUri}" alt="Writing Preview" style="width:100%; display:block; border-radius:4px;" />`;
   } else if (data.renderError) {
@@ -107,6 +111,7 @@ fontSelect.addEventListener("change", async () => {
   const fontId = fontSelect.value;
 
   try {
+    downloadBtn.disabled = true;
     previewEl.innerHTML = `<div class="loading">Rendering…</div>`;
     const result = await app.callServerTool({
       name: "render_writing_preview",
@@ -139,6 +144,23 @@ fontSelect.addEventListener("change", async () => {
   }
 });
 
+// Sandboxed iframes can't download directly; the host saves the file (usually after a confirmation).
+downloadBtn.addEventListener("click", async () => {
+  if (!currentPng) return;
+  const font = String(state?.selectedFont?.label || "preview").trim().replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+  try {
+    const { isError } = await app.downloadFile({
+      contents: [{
+        type: "resource",
+        resource: { uri: `file:///handwrytten-${font}.png`, mimeType: "image/png", blob: currentPng },
+      }],
+    });
+    if (isError) console.warn("Download denied or cancelled");
+  } catch (e) {
+    console.error("Download failed:", e);
+  }
+});
+
 app.onhostcontextchanged = (ctx) => {
   if (ctx.theme === "dark") {
     document.documentElement.style.setProperty("--bg", "#1e1e1e");
@@ -153,4 +175,6 @@ app.onhostcontextchanged = (ctx) => {
   }
 };
 
-app.connect();
+app.connect().then(() => {
+  downloadBtn.hidden = !app.getHostCapabilities()?.downloadFile;
+});

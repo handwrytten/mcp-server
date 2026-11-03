@@ -54,6 +54,28 @@ body {
   box-shadow: 0 0 0 2px rgba(238, 103, 35, 0.15);
 }
 
+#download-btn {
+  margin-left: auto;
+  padding: 6px 10px;
+  border: 1px solid var(--border, #ccc);
+  border-radius: 6px;
+  background: var(--input-bg, #fff);
+  color: var(--fg, #1a1a1a);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+#download-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+#download-btn:focus-visible {
+  outline: none;
+  border-color: #ee6723;
+  box-shadow: 0 0 0 2px rgba(238, 103, 35, 0.15);
+}
+
 /* ── Preview Container ───────────────────────────────────── */
 
 .preview-container {

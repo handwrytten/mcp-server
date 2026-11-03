@@ -62,10 +62,11 @@ test("font changes keep the initial cardId in the UI request", async () => {
   let app: any;
   let change: () => Promise<void>;
   let args: any;
-  const element = { innerHTML: "", value: "second", appendChild() {}, addEventListener(_name: string, fn: any) { change = fn; } };
+  const element = { innerHTML: "", value: "second", appendChild() {}, addEventListener(name: string, fn: any) { if (name === "change") change = fn; } };
   class FakeApp {
     constructor() { app = this; }
-    connect() {}
+    async connect() {}
+    getHostCapabilities() { return {}; }
     async callServerTool(request: any) { args = request.arguments; return { content: [{ type: "text", text: '{"selectedFont":{"id":"second","label":"Second"}}' }] }; }
   }
   const source = readFileSync(new URL("../src/ui/writing-preview.ts", import.meta.url), "utf8").replace(/^import .*;\r?\n/gm, "");

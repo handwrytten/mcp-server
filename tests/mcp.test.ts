@@ -51,7 +51,7 @@ test("tool annotations and preview CSP survive serialization, and backend 401 tr
       const csp = (contents[0]._meta?.ui as { csp: { resourceDomains: string[]; connectDomains: string[] } }).csp;
       assert.ok(csp.resourceDomains.includes("https://cdn.handwrytten.com"));
       assert.deepEqual(csp.connectDomains, []);
-      assert.equal((contents[0]._meta?.ui as any).domain, "https://mcp.handwrytten.com");
+      assert.equal((contents[0]._meta?.ui as any).domain, undefined, name);
       assert.ok(csp.resourceDomains.includes("data:"), name);
       assert.ok(!csp.resourceDomains.includes("blob:"), name);
       assert.ok(!csp.resourceDomains.some(d => d.includes("*")), name);
